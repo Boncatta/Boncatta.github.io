@@ -1,0 +1,15 @@
+.git
+.github
+.playwright-cli
+android/.gradle
+android/app/build
+android/build
+apk
+apk-mobile-ui
+node_modules
+output
+server/data/*.json
+server/data/backups
+www
+*.apk
+*.aab
