@@ -296,7 +296,9 @@
   }
 
   function renderRoster() {
-    $("roster").innerHTML = CHARACTER_DEFS.map((def) => {
+    const roster = $("roster");
+    if (!roster) return;
+    roster.innerHTML = CHARACTER_DEFS.map((def) => {
       const skills = def.skills.map(([name, prob, handler]) => {
         const color = SKILL_META[handler]?.[1] || "#667085";
         return `<span class="tag" style="border-color:${color};color:${color}">${C.escapeHtml(name)} ${prob}%</span>`;
@@ -331,10 +333,16 @@
     $("roomInfo").textContent = text;
   }
 
+  function setBattleActive(active) {
+    document.body.classList.toggle("battle-active", Boolean(active));
+  }
+
   function updateLocks() {
     const authed = Boolean(app.auth);
     const inRoom = app.role !== "lobby";
     const inBattle = Boolean(app.engine);
+    document.body.classList.toggle("room-active", inRoom);
+    document.body.classList.toggle("is-room-host", app.role === "host");
     $("modeSelect").disabled = inRoom;
     $("createRoom").disabled = !authed || inRoom || inBattle;
     $("joinRoom").disabled = !authed || inRoom || inBattle;
@@ -656,8 +664,7 @@
     }
     if (message.type === "reset") {
       app.engine = null;
-      $("battlePanel").hidden = true;
-      updateLocks();
+      renderBattle();
       return;
     }
     if (message.type === "error") updateNetworkStatus(message.message || "联机错误");
@@ -688,7 +695,7 @@
     app.seatIndex = null;
     app.seats = [];
     app.engine = null;
-    $("battlePanel").hidden = true;
+    renderBattle();
     updateNetworkStatus("已回到统一大厅。");
     renderSeats();
     renderRooms();
@@ -722,10 +729,9 @@
   function resetGame() {
     if (app.role !== "host") return;
     app.engine = null;
-    $("battlePanel").hidden = true;
+    renderBattle();
     publishRoom();
     broadcast({ type: "reset" });
-    updateLocks();
   }
 
   function collectTargets() {
@@ -1123,6 +1129,7 @@
 
   function renderBattle() {
     const engine = app.engine;
+    setBattleActive(Boolean(engine));
     $("battlePanel").hidden = !engine;
     if (!engine) {
       updateLocks();

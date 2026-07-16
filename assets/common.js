@@ -1,10 +1,8 @@
 (() => {
   const fmt = new Intl.NumberFormat("zh-CN");
   const nav = [
-    ["/", "主页", "home"],
     ["/game.html", "暴塔", "game"],
     ["/characters.html", "人物图鉴", "characters"],
-    ["https://github.com/Boncatta/Boncatta.github.io", "GitHub", "github"],
   ];
 
   function escapeHtml(value) {

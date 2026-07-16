@@ -66,7 +66,7 @@
     }).join("");
   }
 
-  function render() {
+  function filteredCharacters() {
     const normalized = query.trim().toLowerCase();
     let characters = data.CHARACTER_DEFS.filter((character) => {
       const haystack = [
@@ -81,29 +81,75 @@
     } else if (sort === "burst") {
       characters = characters.slice().sort((a, b) => Math.max(...b.skills.map((item) => item[1])) - Math.max(...a.skills.map((item) => item[1])));
     }
+    return characters;
+  }
 
-    $("characterGrid").innerHTML = characters.length
-      ? characters.map((character) => {
-        const total = character.skills.reduce((sum, item) => sum + item[1], 0);
-        const max = Math.max(...character.skills.map((item) => item[1]));
-        return `<article class="character-card">
-          <div class="character-card-head">
-            <div>
-              <h2>${C.escapeHtml(character.name)}</h2>
-              <p>${C.escapeHtml(character.desc)}</p>
-            </div>
-            <div class="character-stat">
-              <span>技能</span>
-              <strong>${character.skills.length}</strong>
-            </div>
-          </div>
-          <div class="character-summary">
-            <span>概率合计 ${total}%</span>
-            <span>最高单项 ${max}%</span>
-          </div>
-          <ol class="skill-list">${skillRows(character)}</ol>
-        </article>`;
-      }).join("")
+  function characterTile(character, index) {
+    const total = character.skills.reduce((sum, item) => sum + item[1], 0);
+    const max = Math.max(...character.skills.map((item) => item[1]));
+    const featured = character.skills.slice(0, 4).map(([name]) => `<span class="tag">${C.escapeHtml(name)}</span>`).join("");
+    return `<button type="button" class="character-tile" data-character-id="${C.escapeHtml(character.id)}">
+      <span class="game-kicker">角色 ${String(index + 1).padStart(2, "0")}</span>
+      <strong>${C.escapeHtml(character.name)}</strong>
+      <p>${C.escapeHtml(character.desc)}</p>
+      <div class="character-tile-stats">
+        <span>技能 ${character.skills.length}</span>
+        <span>最高 ${max}%</span>
+        <span>合计 ${total}%</span>
+      </div>
+      <div class="tags">${featured}</div>
+    </button>`;
+  }
+
+  function characterDetail(character) {
+    const total = character.skills.reduce((sum, item) => sum + item[1], 0);
+    const max = Math.max(...character.skills.map((item) => item[1]));
+    return `<article class="character-card character-detail-card">
+      <div class="character-detail-nav">
+        <button type="button" data-back-characters>返回八角色</button>
+        <span>${C.escapeHtml(character.name)}</span>
+      </div>
+      <div class="character-card-head">
+        <div>
+          <h2>${C.escapeHtml(character.name)}</h2>
+          <p>${C.escapeHtml(character.desc)}</p>
+        </div>
+        <div class="character-stat">
+          <span>技能</span>
+          <strong>${character.skills.length}</strong>
+        </div>
+      </div>
+      <div class="character-summary">
+        <span>概率合计 ${total}%</span>
+        <span>最高单项 ${max}%</span>
+      </div>
+      <ol class="skill-list">${skillRows(character)}</ol>
+    </article>`;
+  }
+
+  function currentCharacter() {
+    const id = decodeURIComponent(location.hash.replace(/^#/, ""));
+    return data.CHARACTER_BY_ID[id] || null;
+  }
+
+  function clearCharacterHash() {
+    history.pushState("", document.title, location.pathname + location.search);
+    render();
+  }
+
+  function render() {
+    const selected = currentCharacter();
+    const grid = $("characterGrid");
+    if (selected) {
+      grid.className = "character-grid character-detail-grid";
+      grid.innerHTML = characterDetail(selected);
+      return;
+    }
+
+    const characters = filteredCharacters();
+    grid.className = "character-grid character-index-grid";
+    grid.innerHTML = characters.length
+      ? characters.map(characterTile).join("")
       : `<div class="empty">没有匹配的人物或技能。</div>`;
   }
 
@@ -118,6 +164,15 @@
       sort = event.target.value;
       render();
     });
+    $("characterGrid").addEventListener("click", (event) => {
+      const tile = event.target.closest("[data-character-id]");
+      if (tile) {
+        location.hash = tile.dataset.characterId;
+        return;
+      }
+      if (event.target.closest("[data-back-characters]")) clearCharacterHash();
+    });
+    window.addEventListener("hashchange", render);
     render();
   }
 
