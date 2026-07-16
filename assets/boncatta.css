@@ -192,7 +192,7 @@ button:disabled { opacity: .42; cursor: not-allowed; }
 }
 
 .join-row { grid-template-columns: minmax(0, 1fr) 96px; margin-top: 10px; }
-.room-command { grid-template-columns: 1fr 1fr 1fr; }
+.room-command { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .room-command .primary-cta, .room-command .ghost-cta { min-height: 44px; }
 
 .room-list { display: grid; gap: 10px; margin-top: 12px; }
@@ -206,6 +206,26 @@ button:disabled { opacity: .42; cursor: not-allowed; }
   border-radius: 18px;
   background: rgba(255, 255, 255, .06);
 }
+
+.room-card.mine {
+  border-color: rgba(40, 215, 255, .45);
+  background: rgba(40, 215, 255, .08);
+}
+
+.room-card-actions {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.room-card-actions .primary-cta,
+.room-card-actions .ghost-cta {
+  min-height: 40px;
+  font-size: .88rem;
+}
+
+.room-card-actions .primary-cta:only-child { grid-column: 1 / -1; }
 
 .room-card strong { font-size: 1.26rem; letter-spacing: .08em; }
 .room-card span, .room-card small, .room-card p { color: var(--muted); }

@@ -1,10 +1,10 @@
 (() => {
   const fmt = new Intl.NumberFormat("zh-CN");
   const nav = [
-    ["/index.html", "主页", "home"],
-    ["/game.html", "暴塔", "game"],
-    ["/characters.html", "图鉴", "characters"],
-    ["/me.html", "我的", "me"],
+    ["index.html", "主页", "home"],
+    ["game.html", "暴塔", "game"],
+    ["characters.html", "图鉴", "characters"],
+    ["me.html", "我的", "me"],
   ];
 
   function escapeHtml(value) {
@@ -35,6 +35,10 @@
       url.searchParams.set("v", String(Date.now()));
       location.href = url.toString();
     });
+  }
+
+  function navigate(target) {
+    location.href = String(target || "index.html").replace(/^\//, "");
   }
 
   function tickBeijing(id) {
@@ -70,7 +74,7 @@
     node._timer = window.setTimeout(() => node.classList.remove("show"), 2200);
   }
 
-  const api = { fmt, escapeHtml, renderNav, wireRefresh, tickBeijing, toast };
+  const api = { fmt, escapeHtml, renderNav, wireRefresh, tickBeijing, toast, navigate };
   window.BONCATTA = api;
   window.SCPPER = api;
 })();

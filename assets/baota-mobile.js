@@ -48,17 +48,25 @@
 
   function renderRoomCards(node, rooms) {
     if (!node) return;
-    node.innerHTML = rooms.length ? rooms.map((room) => `
-      <article class="room-card" data-room-code="${escape(room.code)}">
+    node.innerHTML = rooms.length ? rooms.map((room) => {
+      const mine = Boolean(room.mySeats?.length);
+      return `
+      <article class="room-card ${mine ? "mine" : ""}" data-room-code="${escape(room.code)}">
         <div>
           <strong>${escape(room.code)}</strong>
           <span>${escape(room.label)}</span>
         </div>
         <em>${statusText(room.status)}</em>
-        <p>${escape(room.summary || "等待玩家入场")}</p>
-        <small>${C.fmt.format(room.count || 0)} / ${C.fmt.format(room.maxSeats || 0)} 人</small>
+        <p>${room.summary ? escape(room.summary) : "&#31561;&#24453;&#29609;&#23478;&#20837;&#22330;"}</p>
+        <small>${C.fmt.format(room.count || 0)} / ${C.fmt.format(room.maxSeats || 0)} &#20154;</small>
+        <footer class="room-card-actions">
+          ${mine
+            ? `<button class="primary-cta" type="button" data-room-action="enter">&#36827;&#20837;&#25151;&#38388;</button><button class="ghost-cta" type="button" data-room-action="leave">&#36864;&#20986;&#25151;&#38388;</button>`
+            : `<button class="primary-cta" type="button" data-room-action="join">&#21152;&#20837;&#25151;&#38388;</button>`}
+        </footer>
       </article>
-    `).join("") : `<div class="empty-state">暂无房间。去暴塔页开一局。</div>`;
+    `;
+    }).join("") : `<div class="empty-state">&#26242;&#26080;&#25151;&#38388;&#12290;&#21435;&#26292;&#22612;&#39029;&#24320;&#19968;&#23616;&#12290;</div>`;
   }
 
   async function refreshRooms() {
@@ -107,6 +115,10 @@
 
   function currentSelectionCount() {
     return state.meta?.modes?.[state.mode]?.setup === "team" ? 2 : 1;
+  }
+
+  function selectionCountForMode(mode) {
+    return state.meta?.modes?.[mode]?.setup === "team" ? 2 : 1;
   }
 
   function collectSelections() {
@@ -199,6 +211,32 @@
       C.toast(`已加入 ${state.room.code}`);
       renderGameRoom();
       startPoll();
+    } catch (error) {
+      C.toast(error.message);
+    }
+  }
+
+  async function joinRoomFromLobby(code) {
+    const room = state.rooms.find((item) => item.code === code);
+    if (!room) return C.toast("房间不存在");
+    try {
+      const selections = defaultSelections(selectionCountForMode(room.mode));
+      const payload = await API.joinRoom(code, selections);
+      state.room = payload.room;
+      state.mode = state.room.mode;
+      API.roomCode = state.room.code;
+      C.navigate("game.html");
+    } catch (error) {
+      C.toast(error.message);
+    }
+  }
+
+  async function leaveRoomFromLobby(code) {
+    try {
+      await API.leave(code);
+      if (API.roomCode === code) API.roomCode = "";
+      await refreshRooms();
+      C.toast("已退出房间");
     } catch (error) {
       C.toast(error.message);
     }
@@ -303,7 +341,13 @@
     $("roomMode").textContent = mode?.label || "暴塔房间";
     $("roomCode").textContent = state.room.code;
     $("roomState").textContent = statusText(state.room.status);
-    $("startBattle").hidden = state.room.host !== state.user?.username || state.room.status === "playing";
+    const isHost = state.room.host === state.user?.username;
+    const inRoom = Boolean(state.room.mySeats?.length);
+    const locked = state.room.status === "playing" || state.room.status === "finished";
+    $("startBattle").hidden = !isHost || locked;
+    $("addAi").hidden = !isHost || locked || state.room.count >= state.room.maxSeats;
+    $("leaveRoom").hidden = !inRoom || state.room.status === "playing";
+    $("backLobby").hidden = false;
     $("resetBattle").hidden = state.room.host !== state.user?.username || !state.room.battle;
     renderSeats();
     renderBattle();
@@ -350,6 +394,21 @@
     } catch (error) {
       C.toast(error.message);
     }
+  }
+
+  async function addAi() {
+    if (!state.room?.code) return;
+    try {
+      const payload = await API.addAi(state.room.code);
+      state.room = payload.room;
+      renderGameRoom();
+    } catch (error) {
+      C.toast(error.message);
+    }
+  }
+
+  function backLobby() {
+    C.navigate("index.html");
   }
 
   function startPoll() {
@@ -450,7 +509,7 @@
     }
     $("logoutButton")?.addEventListener("click", async () => {
       await API.logout();
-      location.href = "/index.html";
+      C.navigate("index.html");
     });
     $("checkUpdate")?.addEventListener("click", () => checkUpdate(true));
     $("downloadUpdate")?.addEventListener("click", (event) => {
@@ -471,10 +530,19 @@
     }));
     $("refreshLobby")?.addEventListener("click", () => refreshRooms().catch((error) => C.toast(error.message)));
     $("homeRoomList")?.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-room-action]");
+      if (!button) return;
       const card = event.target.closest("[data-room-code]");
       if (!card) return;
-      API.roomCode = card.dataset.roomCode;
-      location.href = "/game.html";
+      const code = card.dataset.roomCode;
+      if (button.dataset.roomAction === "enter") {
+        API.roomCode = code;
+        C.navigate("game.html");
+      } else if (button.dataset.roomAction === "join") {
+        joinRoomFromLobby(code);
+      } else if (button.dataset.roomAction === "leave") {
+        leaveRoomFromLobby(code);
+      }
     });
   }
 
@@ -482,7 +550,9 @@
     $("createRoom")?.addEventListener("click", createRoom);
     $("joinRoom")?.addEventListener("click", joinRoom);
     $("startBattle")?.addEventListener("click", startBattle);
+    $("addAi")?.addEventListener("click", addAi);
     $("leaveRoom")?.addEventListener("click", leaveRoom);
+    $("backLobby")?.addEventListener("click", backLobby);
     $("resetBattle")?.addEventListener("click", resetBattle);
     $("actButton")?.addEventListener("click", act);
     $("gameRefresh")?.addEventListener("click", async () => {

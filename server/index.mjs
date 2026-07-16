@@ -25,6 +25,7 @@ const port = Number(process.env.PORT || process.env.BONCATTA_PORT || 8787);
 const sessionDays = 30;
 const roomMaxAgeMs = 1000 * 60 * 60 * 6;
 const githubReleaseApi = "https://api.github.com/repos/Boncatta/Boncatta.github.io/releases/tags/apk-latest";
+const aiNames = ["Tata", "Frost", "Med", "Blade", "Knight", "Nova"];
 
 const mime = {
   ".html": "text/html; charset=utf-8",
@@ -197,6 +198,39 @@ function occupy(room, username, selections, preferred = null) {
   return index;
 }
 
+function isAiUsername(username) {
+  return String(username || "").startsWith("AI#");
+}
+
+function aiSelection(room, seatIndex) {
+  const used = room.seats.filter((seat) => isAiUsername(seat.username)).length;
+  const characterId = DEFAULT_CHARS[(seatIndex + used) % DEFAULT_CHARS.length] || "undead";
+  return cleanSelection({
+    name: `${aiNames[(seatIndex + used) % aiNames.length]} AI`,
+    characterId,
+  }, "AI", characterId);
+}
+
+function addAi(room, count = 1) {
+  if (room.status === "playing" || room.status === "finished") throw httpError(409, "Battle already started.");
+  let added = 0;
+  for (let i = 0; i < count; i += 1) {
+    const index = room.seats.findIndex((seat) => !seat.occupied);
+    if (index < 0) break;
+    room.seats[index] = {
+      ...room.seats[index],
+      occupied: true,
+      username: `AI#${room.code}#${Date.now()}#${index}`,
+      selection: aiSelection(room, index),
+    };
+    added += 1;
+  }
+  if (!added) throw httpError(409, "Room is full.");
+  room.updatedAt = nowIso();
+  saveDb();
+  return room;
+}
+
 function createRoom(username, mode, selections) {
   const db = getDb();
   const config = MODES[mode] || MODES.duel;
@@ -244,6 +278,7 @@ function startRoom(room, username) {
   room.status = "playing";
   room.battle = new BattleEngine(room.mode, occupied).clone();
   room.statsApplied = false;
+  runAiTurns(room);
   room.updatedAt = nowIso();
   saveDb();
   return room;
@@ -254,6 +289,32 @@ function canAct(room, username) {
   const engine = BattleEngine.fromSnapshot(room.battle, room.mode);
   const current = engine.currentFighter();
   return Boolean(current && current.username === username && !engine.gameOver);
+}
+
+function aiTargets(engine) {
+  const enemies = engine.aliveIndexes("enemy");
+  const others = engine.aliveIndexes("anyOther");
+  const fallback = enemies[0] ?? others[0] ?? engine.current ?? 0;
+  return {
+    primary: fallback,
+    secondary: enemies[1] ?? fallback,
+    tertiary: enemies[2] ?? fallback,
+    multi: enemies.length ? enemies : others,
+  };
+}
+
+function runAiTurns(room, limit = 24) {
+  if (!room.battle || room.status !== "playing") return;
+  const engine = BattleEngine.fromSnapshot(room.battle, room.mode);
+  let guard = 0;
+  while (!engine.gameOver && guard < limit) {
+    const current = engine.currentFighter();
+    if (!current || !isAiUsername(current.username)) break;
+    engine.takeAction(aiTargets(engine));
+    guard += 1;
+  }
+  room.battle = engine.clone();
+  room.status = room.battle.gameOver ? "finished" : "playing";
 }
 
 function applyStats(room) {
@@ -291,6 +352,7 @@ function actRoom(room, username, targets) {
   engine.takeAction(targets || {});
   room.battle = engine.clone();
   room.status = room.battle.gameOver ? "finished" : "playing";
+  runAiTurns(room);
   room.updatedAt = nowIso();
   getDb().users[username].stats.actions += 1;
   getDb().users[username].updatedAt = nowIso();
@@ -488,6 +550,11 @@ async function api(req, res, path) {
 
     if (req.method === "GET" && !action) return json(res, 200, { ok: true, room: publicRoomFor(room, session.username) });
     if (req.method === "POST" && action === "join") return json(res, 200, { ok: true, room: publicRoomFor(joinRoom(room, session.username, body.selections || body.selection), session.username) });
+    if (req.method === "POST" && action === "ai") {
+      if (room.host !== session.username) throw httpError(403, "Only host can add AI.");
+      const count = body.fill ? room.seats.filter((seat) => !seat.occupied).length : Number(body.count || 1);
+      return json(res, 200, { ok: true, room: publicRoomFor(addAi(room, Math.max(1, count)), session.username) });
+    }
     if (req.method === "POST" && action === "selection") return json(res, 200, { ok: true, room: publicRoomFor(applySelectionsToRoom(room, session.username, body.selections || body.selection), session.username) });
     if (req.method === "POST" && action === "start") return json(res, 200, { ok: true, room: publicRoomFor(startRoom(room, session.username), session.username) });
     if (req.method === "POST" && action === "action") return json(res, 200, { ok: true, room: publicRoomFor(actRoom(room, session.username, body.targets), session.username) });

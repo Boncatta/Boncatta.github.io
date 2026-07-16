@@ -56,6 +56,7 @@
     createRoom(mode, selections) { return this.request("/api/rooms", { method: "POST", body: { mode, selections } }); },
     room(code) { return this.request(`/api/rooms/${encodeURIComponent(code)}`); },
     joinRoom(code, selections) { return this.request(`/api/rooms/${encodeURIComponent(code)}/join`, { method: "POST", body: { selections } }); },
+    addAi(code, options = {}) { return this.request(`/api/rooms/${encodeURIComponent(code)}/ai`, { method: "POST", body: options }); },
     selection(code, selections) { return this.request(`/api/rooms/${encodeURIComponent(code)}/selection`, { method: "POST", body: { selections } }); },
     start(code) { return this.request(`/api/rooms/${encodeURIComponent(code)}/start`, { method: "POST" }); },
     act(code, targets) { return this.request(`/api/rooms/${encodeURIComponent(code)}/action`, { method: "POST", body: { targets } }); },
