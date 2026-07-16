@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: boncatta-api
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm run api
+    envVars:
+      - key: BONCATTA_DATA_DIR
+        value: /var/data/boncatta
+    disk:
+      name: boncatta-data
+      mountPath: /var/data
+      sizeGB: 1

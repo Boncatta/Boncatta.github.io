@@ -4,6 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "node server/index.mjs",
+    "api": "node server/index.mjs",
     "mobile:prepare": "node tools/prepare-mobile.mjs",
     "cap:add:android": "npm run mobile:prepare && cap add android",
     "cap:sync": "npm run mobile:prepare && cap sync android",

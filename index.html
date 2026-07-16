@@ -2,63 +2,50 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Boncatta</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="/assets/boncatta.css">
 </head>
-<body>
-  <header>
-    <div class="topline">
-      <div>
-        <h1>Boncatta</h1>
-        <p class="lead">暴塔的独立联机站。这里和 piglin.me 分开发布，后续多人模式、角色图鉴和战斗规则都会在这里继续生长。</p>
-        <div class="credit">created by piglin</div>
-      </div>
-      <div class="card" style="min-width:220px">
-        <span class="card-label">当前北京时间</span>
-        <span class="card-value" id="nowBeijing">--</span>
-      </div>
-    </div>
-    <nav class="nav" id="nav" aria-label="站点导航"></nav>
-  </header>
-
-  <main class="home-shell">
-    <section class="panel hero-panel">
+<body class="mobile-app page-home">
+  <main class="app-screen">
+    <section class="game-hero">
       <div>
         <span class="game-kicker">Boncatta Online</span>
-        <h2>暴塔联机版</h2>
-        <p>当前保留经典 1v1，并新增 2v2 指挥官、2v2 四玩家和多人混战。每次行动会公开显示随机数、命中区间、技能和目标。</p>
+        <h1>暴塔</h1>
+        <p>移动端真人对战大厅。</p>
       </div>
-      <div class="actions">
-        <a class="game-primary action-link" href="/game.html">选择模式</a>
-        <a class="action-link" href="/characters.html">人物图鉴</a>
-      </div>
+      <div class="hero-orb">BT</div>
     </section>
 
-    <section class="cards home-cards">
-      <article class="card">
-        <span class="card-label">联机方式</span>
-        <strong>公开大厅 + WebRTC</strong>
-        <p class="small">1v1、2v2 和混战都在同一个暴塔大厅里创建与加入，房间卡片会标出具体模式。</p>
-      </article>
-      <article class="card">
-        <span class="card-label">行动透明度</span>
-        <strong>显示随机数与目标</strong>
-        <p class="small">战斗横幅和日志都会写出本次投掷、目标与技能命中区间。</p>
-      </article>
-      <article class="card">
-        <span class="card-label">下一步</span>
-        <strong>多模式并行</strong>
-        <p class="small">经典 1v1 保留，新多人模式支持复数目标、全场技能和多段索敌。</p>
-      </article>
+    <section class="glass-panel auth-card" id="homeLogin">
+      <div class="panel-title">
+        <span>账号登录</span>
+        <small>用户名唯一，密码六位以上数字</small>
+      </div>
+      <label class="game-input">用户名<input id="loginName" autocomplete="username" maxlength="18" placeholder="piglin"></label>
+      <label class="game-input">密码<input id="loginPassword" type="password" inputmode="numeric" autocomplete="current-password" placeholder="123456"></label>
+      <button class="primary-cta" id="loginButton" type="button">进入大厅</button>
+      <div class="hint-line" id="loginMessage">首次登录会在后端创建账号。</div>
+    </section>
+
+    <section class="glass-panel lobby-card" id="homeLobby" hidden>
+      <div class="panel-title">
+        <span id="homeGreeting">大厅</span>
+        <button class="mini-button" id="refreshLobby" type="button">刷新</button>
+      </div>
+      <div class="quick-row">
+        <a class="primary-cta" href="/game.html">创建房间</a>
+        <a class="ghost-cta" href="/game.html#join">加入房间</a>
+      </div>
+      <div class="room-list mobile-room-list" id="homeRoomList"></div>
     </section>
   </main>
 
+  <nav class="nav" id="nav" aria-label="应用导航"></nav>
+  <script src="/assets/baota-config.js"></script>
   <script src="/assets/common.js"></script>
-  <script>
-    window.BONCATTA.renderNav("home");
-    window.BONCATTA.tickBeijing("nowBeijing");
-  </script>
+  <script src="/assets/baota-api.js"></script>
+  <script src="/assets/baota-mobile.js"></script>
 </body>
 </html>

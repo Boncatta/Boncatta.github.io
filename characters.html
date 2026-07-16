@@ -2,15 +2,19 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>人物图鉴 - Boncatta</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="/assets/boncatta.css">
 </head>
-<body class="page-characters">
-  <nav class="nav" id="nav" aria-label="站点导航"></nav>
-
-  <main>
+<body class="mobile-app page-characters">
+  <main class="app-screen">
+    <section class="game-top">
+      <div>
+        <span class="game-kicker">Codex</span>
+        <h1>图鉴</h1>
+      </div>
+    </section>
     <section class="toolbar two character-toolbar">
       <input id="characterSearch" placeholder="搜索角色或技能">
       <select id="characterSort" aria-label="排序">
@@ -22,6 +26,7 @@
     <section class="character-grid" id="characterGrid"></section>
   </main>
 
+  <nav class="nav" id="nav" aria-label="应用导航"></nav>
   <script src="/assets/common.js"></script>
   <script src="/assets/fighting.js"></script>
   <script src="/assets/characters.js"></script>

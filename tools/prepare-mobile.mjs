@@ -9,6 +9,7 @@ const includeFiles = new Set([
   "characters.html",
   "game.html",
   "index.html",
+  "me.html",
 ]);
 const includeDirs = new Set(["assets"]);
 

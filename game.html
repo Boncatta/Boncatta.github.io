@@ -2,154 +2,84 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>暴塔 - Boncatta</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="/assets/boncatta.css">
 </head>
-<body class="page-game">
-  <nav class="nav" id="nav" aria-label="站点导航"></nav>
+<body class="mobile-app page-game">
+  <main class="app-screen battle-screen">
+    <section class="game-top">
+      <div>
+        <span class="game-kicker" id="gameStatus">等待登录</span>
+        <h1>暴塔</h1>
+      </div>
+      <button class="mini-button" id="gameRefresh" type="button">同步</button>
+    </section>
 
-  <main class="game-shell">
-    <div class="sr-only" id="networkStatus" aria-live="polite">正在连接大厅...</div>
+    <section class="glass-panel login-required" id="gameLoginGate" hidden>
+      <div class="panel-title"><span>需要登录</span><small>先进入主页完成账号验证</small></div>
+      <a class="primary-cta" href="/index.html">去登录</a>
+    </section>
 
-    <section class="panel app-update-panel" id="appUpdatePanel">
-      <div class="panel-head app-update-head">
+    <section class="create-stage" id="createStage">
+      <div class="mode-strip" id="modeStrip"></div>
+      <section class="glass-panel role-editor">
+        <div class="panel-title"><span>出战角色</span><small id="roleHint">选择你的角色</small></div>
+        <div class="role-grid" id="roleEditor"></div>
+      </section>
+      <section class="glass-panel room-actions">
+        <button class="primary-cta" id="createRoom" type="button">创建房间</button>
+        <div class="join-row">
+          <input id="joinCode" maxlength="8" placeholder="房间码">
+          <button class="ghost-cta" id="joinRoom" type="button">加入</button>
+        </div>
+      </section>
+    </section>
+
+    <section class="room-stage" id="roomStage" hidden>
+      <section class="room-banner">
         <div>
-          <h2>应用更新</h2>
-          <div class="small" id="appVersionInfo">正在读取版本...</div>
+          <span class="game-kicker" id="roomMode">房间</span>
+          <h2 id="roomCode">-----</h2>
         </div>
-        <button type="button" id="checkUpdate">检查</button>
-      </div>
-      <div class="panel-section app-update-body">
-        <div class="small" id="updateStatus">可在应用内检查并下载新版 APK。</div>
-        <a class="game-primary action-link" id="downloadUpdate" href="#" target="_blank" rel="noreferrer" hidden>下载新版 APK</a>
-      </div>
+        <span class="status-chip" id="roomState">等待中</span>
+      </section>
+
+      <section class="seat-board" id="seatBoard"></section>
+
+      <section class="glass-panel room-command">
+        <button class="primary-cta" id="startBattle" type="button">开始战斗</button>
+        <button class="ghost-cta" id="leaveRoom" type="button">离开房间</button>
+        <button class="ghost-cta" id="resetBattle" type="button">重开</button>
+      </section>
+
+      <section class="battle-board" id="battleBoard" hidden>
+        <div class="turn-card">
+          <span class="game-kicker" id="roundText">第 1 回合</span>
+          <strong id="turnText">等待行动</strong>
+          <small id="rollText">随机数：等待首次行动</small>
+        </div>
+        <div class="fighter-board" id="fighterBoard"></div>
+        <section class="glass-panel action-pad">
+          <label>主要目标<select id="targetPrimary"></select></label>
+          <label>第二目标<select id="targetSecondary"></select></label>
+          <label>第三目标<select id="targetTertiary"></select></label>
+          <label>复数目标<select id="targetMulti" multiple size="4"></select></label>
+          <button class="primary-cta" id="actButton" type="button">行动</button>
+        </section>
+        <details class="glass-panel battle-log">
+          <summary>战斗日志 <span id="logCount">0</span></summary>
+          <div id="battleLog"></div>
+        </details>
+      </section>
     </section>
-
-    <section class="panel login-panel" id="loginPanel">
-      <div class="panel-head">
-        <h2>登录暴塔</h2>
-        <div class="small">首次登录会在本机创建账号；密码必须是 6 位以上数字。</div>
-      </div>
-      <div class="panel-section login-grid">
-        <label class="game-field">用户名<input id="loginName" autocomplete="username" maxlength="18" placeholder="例如 piglin"></label>
-        <label class="game-field">密码<input id="loginPassword" type="password" inputmode="numeric" autocomplete="current-password" placeholder="至少 6 位数字"></label>
-        <button type="button" class="game-primary" id="loginButton">登录 / 创建本地账号</button>
-        <div class="small login-message" id="loginMessage"></div>
-      </div>
-    </section>
-
-    <div id="gameContent" hidden>
-
-    <section class="game-lobby-layout">
-      <div class="panel lobby-panel">
-        <div class="panel-head game-lobby-head">
-          <div>
-            <h2>统一大厅</h2>
-            <div class="small" id="lobbyStatus">连接大厅中...</div>
-          </div>
-          <button type="button" id="refreshRooms">刷新</button>
-        </div>
-        <div class="panel-section game-room-list" id="roomList"></div>
-      </div>
-
-      <div class="panel room-setup-panel">
-        <div class="panel-head">
-          <h2>创建或加入</h2>
-          <div class="small" id="sideHint">选择模式后创建房间；加入房间时会自动采用该房间模式。</div>
-        </div>
-        <div class="panel-section game-mode-panel mode-section">
-          <label class="game-field">模式
-            <select id="modeSelect">
-              <option value="duel">1v1 经典</option>
-              <option value="commander">2v2 指挥官</option>
-              <option value="team4">2v2 四玩家</option>
-              <option value="ffa">多人混战</option>
-            </select>
-          </label>
-          <div class="game-mode-note" id="modeNote"></div>
-        </div>
-
-        <div class="panel-section single-setup-section" id="singleSetup">
-          <h3>我的角色</h3>
-          <label class="game-field">名字<input id="playerName0" value="玩家" maxlength="18"></label>
-          <label class="game-field">角色<select id="playerCharacter0"></select></label>
-          <div class="game-character-note" id="playerNote0"></div>
-        </div>
-
-        <div class="panel-section game-team-editor commander-setup-section" id="commanderSetup" hidden>
-          <article>
-            <h3>一号位</h3>
-            <label class="game-field">名字<input id="playerName1" value="玩家一号" maxlength="18"></label>
-            <label class="game-field">角色<select id="playerCharacter1"></select></label>
-            <div class="game-character-note" id="playerNote1"></div>
-          </article>
-          <article>
-            <h3>二号位</h3>
-            <label class="game-field">名字<input id="playerName2" value="玩家二号" maxlength="18"></label>
-            <label class="game-field">角色<select id="playerCharacter2"></select></label>
-            <div class="game-character-note" id="playerNote2"></div>
-          </article>
-        </div>
-
-        <div class="panel-section game-mode-panel room-actions-section">
-          <button type="button" class="game-primary create-room-button" id="createRoom">创建房间</button>
-          <div class="game-join-row join-room-row">
-            <input id="roomInput" maxlength="24" placeholder="输入房间码">
-            <button type="button" id="joinRoom">加入</button>
-          </div>
-          <div class="actions">
-            <button type="button" id="copyRoom" disabled>复制房间码</button>
-            <button type="button" id="leaveRoom" disabled>离开房间</button>
-          </div>
-          <button type="button" class="game-primary" id="startGame" disabled>开始战斗</button>
-          <div class="small" id="roomInfo">等待大厅连接。</div>
-        </div>
-      </div>
-    </section>
-
-    <section class="panel room-state-panel">
-      <div class="panel-head">
-        <h2>房间座位</h2>
-        <div class="small" id="seatHelp">创建或加入房间后显示座位与阵营。</div>
-      </div>
-      <div class="panel-section multi-seat-grid" id="seatList"></div>
-    </section>
-
-    <section class="panel game-board" id="battlePanel" hidden>
-      <div class="panel-head game-battle-head">
-        <div>
-          <span class="game-kicker" id="battleRoomCode">房间 --</span>
-          <h2 id="roundTitle">第 1 回合</h2>
-          <div class="small" id="turnHint">等待开始</div>
-        </div>
-        <div class="game-controls">
-          <label class="game-target-control target-primary">主要目标<select id="targetPrimary" disabled></select></label>
-          <label class="game-target-control target-secondary">第二目标<select id="targetSecondary" disabled></select></label>
-          <label class="game-target-control target-tertiary">第三目标<select id="targetTertiary" disabled></select></label>
-          <label class="game-target-control game-target-multi target-multi">复数目标<select id="targetMulti" multiple size="4" disabled></select></label>
-          <button type="button" class="game-primary" id="actionButton">行动</button>
-          <button type="button" id="restartButton">重开</button>
-        </div>
-      </div>
-      <div class="game-arena game-arena-2v2" id="arena"></div>
-      <div class="game-skill-banner" id="skillBanner">等待行动</div>
-      <div class="game-roll-info" id="rollInfo">上次随机数：等待首次行动</div>
-      <details class="game-log-wrap">
-        <summary>展开战斗日志 <span id="logCount">0</span></summary>
-        <div class="game-log" id="battleLog" aria-live="polite"></div>
-      </details>
-    </section>
-
-    </div>
   </main>
 
-  <script src="/assets/common.js"></script>
-  <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
-  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <nav class="nav" id="nav" aria-label="应用导航"></nav>
   <script src="/assets/baota-config.js"></script>
-  <script src="/assets/fighting.js"></script>
-  <script src="/assets/fighting-unified.js"></script>
+  <script src="/assets/common.js"></script>
+  <script src="/assets/baota-api.js"></script>
+  <script src="/assets/baota-mobile.js"></script>
 </body>
 </html>

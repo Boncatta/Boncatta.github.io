@@ -8,10 +8,13 @@ on:
     paths:
       - "android/**"
       - "assets/**"
+      - "server/**"
       - "tools/**"
       - "characters.html"
       - "game.html"
       - "index.html"
+      - "me.html"
+      - "render.yaml"
       - "capacitor.config.json"
       - "package.json"
       - "package-lock.json"
