@@ -4,127 +4,61 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Boncatta</title>
-  <style>
-    :root {
-      color-scheme: light;
-      --ink: #172033;
-      --muted: #657086;
-      --line: #dbe3ef;
-      --bg: #f6f8fb;
-      --card: #ffffff;
-      --brand: #2f6fed;
-      --brand-dark: #214fa8;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      min-height: 100vh;
-      font-family: "Inter", "Segoe UI", "Microsoft YaHei", sans-serif;
-      color: var(--ink);
-      background:
-        radial-gradient(circle at 18% 14%, rgba(47, 111, 237, 0.14), transparent 28rem),
-        linear-gradient(135deg, #f9fbff 0%, var(--bg) 100%);
-    }
-
-    main {
-      width: min(960px, calc(100% - 32px));
-      min-height: 100vh;
-      margin: 0 auto;
-      display: grid;
-      place-items: center;
-      padding: 56px 0;
-    }
-
-    .hero {
-      width: 100%;
-      padding: clamp(28px, 6vw, 64px);
-      border: 1px solid var(--line);
-      border-radius: 18px;
-      background: rgba(255, 255, 255, 0.86);
-      box-shadow: 0 24px 70px rgba(30, 52, 91, 0.12);
-    }
-
-    .eyebrow {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 20px;
-      padding: 7px 12px;
-      border-radius: 999px;
-      background: #eef4ff;
-      color: var(--brand-dark);
-      font-size: 14px;
-      font-weight: 700;
-    }
-
-    h1 {
-      margin: 0;
-      font-size: clamp(44px, 9vw, 84px);
-      line-height: 0.95;
-      letter-spacing: 0;
-    }
-
-    p {
-      max-width: 660px;
-      margin: 22px 0 0;
-      color: var(--muted);
-      font-size: clamp(17px, 2.4vw, 22px);
-      line-height: 1.7;
-    }
-
-    .actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-top: 34px;
-    }
-
-    a {
-      color: inherit;
-    }
-
-    .button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 44px;
-      padding: 0 18px;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      background: var(--card);
-      text-decoration: none;
-      font-weight: 700;
-    }
-
-    .button.primary {
-      border-color: var(--brand);
-      background: var(--brand);
-      color: #fff;
-    }
-
-    footer {
-      margin-top: 34px;
-      color: var(--muted);
-      font-size: 14px;
-    }
-  </style>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/assets/boncatta.css">
 </head>
 <body>
-  <main>
-    <section class="hero" aria-labelledby="title">
-      <div class="eyebrow">独立 GitHub Pages 站点</div>
-      <h1 id="title">Boncatta</h1>
-      <p>这里是 Boncatta 的独立站点，不使用 piglin.me 的仓库和域名配置。后续内容会在这个项目站里继续扩展。</p>
-      <div class="actions">
-        <a class="button primary" href="https://github.com/gao-yi-fei/Boncatta">查看仓库</a>
-        <a class="button" href="https://gao-yi-fei.github.io/Boncatta/">GitHub Pages</a>
+  <header>
+    <div class="topline">
+      <div>
+        <h1>Boncatta</h1>
+        <p class="lead">暴塔的独立联机站。这里和 piglin.me 分开发布，后续多人模式、角色图鉴和战斗规则都会在这里继续生长。</p>
+        <div class="credit">created by piglin</div>
       </div>
-      <footer>Created by piglin.</footer>
+      <div class="card" style="min-width:220px">
+        <span class="card-label">当前北京时间</span>
+        <span class="card-value" id="nowBeijing">--</span>
+      </div>
+    </div>
+    <nav class="nav" id="nav" aria-label="站点导航"></nav>
+  </header>
+
+  <main class="home-shell">
+    <section class="panel hero-panel">
+      <div>
+        <span class="game-kicker">Boncatta Online</span>
+        <h2>暴塔联机版</h2>
+        <p>当前版本保留 1v1 联机战斗，并已经为多人目标选择预留结构。每次行动会公开显示随机数、命中区间、技能和目标。</p>
+      </div>
+      <div class="actions">
+        <a class="game-primary action-link" href="/game.html">进入游戏</a>
+        <a class="action-link" href="/characters.html">人物图鉴</a>
+      </div>
+    </section>
+
+    <section class="cards home-cards">
+      <article class="card">
+        <span class="card-label">联机方式</span>
+        <strong>公开大厅 + WebRTC 对战</strong>
+        <p class="small">房主负责计算战斗结果，访客同步状态，避免两端随机数不一致。</p>
+      </article>
+      <article class="card">
+        <span class="card-label">行动透明度</span>
+        <strong>显示随机数</strong>
+        <p class="small">战斗横幅和日志都会写出本次投掷、目标与技能命中区间。</p>
+      </article>
+      <article class="card">
+        <span class="card-label">下一步</span>
+        <strong>多人模式</strong>
+        <p class="small">目标选择 UI 已先接入，后续可以扩展成多名玩家或队伍战。</p>
+      </article>
     </section>
   </main>
+
+  <script src="/assets/common.js"></script>
+  <script>
+    window.BONCATTA.renderNav("home");
+    window.BONCATTA.tickBeijing("nowBeijing");
+  </script>
 </body>
 </html>
