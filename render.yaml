@@ -5,6 +5,7 @@ services:
     plan: free
     buildCommand: npm install
     startCommand: npm run api
+    healthCheckPath: /api/health
     envVars:
       - key: BONCATTA_DATA_DIR
         value: /var/data/boncatta

@@ -6,9 +6,12 @@
   oldKeys.forEach((key) => storage.removeItem(key));
 
   function inferBase() {
+    const configured = String(window.BAOTA_API_BASE || "").replace(/\/$/, "");
+    const isCapacitorHost = location.protocol === "capacitor:" || (location.protocol === "https:" && location.hostname === "localhost" && !location.port);
+    if (isCapacitorHost) return configured || "http://localhost:8787";
     if (["localhost", "127.0.0.1"].includes(location.hostname)) return location.origin;
-    if (window.BAOTA_API_BASE) return window.BAOTA_API_BASE.replace(/\/$/, "");
-    if (location.protocol === "file:" || location.protocol === "capacitor:") return "http://localhost:8787";
+    if (configured) return configured;
+    if (location.protocol === "file:") return "http://localhost:8787";
     return location.origin;
   }
 
@@ -34,6 +37,8 @@
         method: options.method || "GET",
         headers,
         body: options.body == null ? undefined : JSON.stringify(options.body),
+      }).catch((error) => {
+        throw new Error(`后端不可达：${this.base}（${error.message || error}）`);
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || payload.ok === false) {

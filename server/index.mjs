@@ -1,5 +1,6 @@
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { createServer } from "node:http";
+import { Readable } from "node:stream";
 import { extname, join, normalize, resolve } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -23,6 +24,7 @@ const publicDir = resolve(process.env.BONCATTA_PUBLIC_DIR || root);
 const port = Number(process.env.PORT || process.env.BONCATTA_PORT || 8787);
 const sessionDays = 30;
 const roomMaxAgeMs = 1000 * 60 * 60 * 6;
+const githubReleaseApi = "https://api.github.com/repos/Boncatta/Boncatta.github.io/releases/tags/apk-latest";
 
 const mime = {
   ".html": "text/html; charset=utf-8",
@@ -52,6 +54,12 @@ function json(res, status, payload) {
 
 function fail(res, status, message) {
   json(res, status, { ok: false, error: message });
+}
+
+function publicBase(req) {
+  const proto = String(req.headers["x-forwarded-proto"] || "http").split(",")[0];
+  const host = req.headers["x-forwarded-host"] || req.headers.host || `localhost:${port}`;
+  return `${proto}://${host}`;
 }
 
 async function readBody(req) {
@@ -336,6 +344,55 @@ function httpError(status, message) {
   return err;
 }
 
+function parseReleaseMeta(release) {
+  const body = String(release?.body || "");
+  const jsonText = body.match(/\{[\s\S]*\}/)?.[0] || "{}";
+  let meta = {};
+  try { meta = JSON.parse(jsonText); } catch { meta = {}; }
+  const assets = release?.assets || [];
+  const apk = assets.find((asset) => asset.name === meta.apkFile)
+    || assets.find((asset) => /^boncatta-.*\.apk$/i.test(asset.name || ""))
+    || assets.find((asset) => /\.apk$/i.test(asset.name || ""));
+  return {
+    versionCode: Number(meta.versionCode || 0),
+    versionName: meta.versionName || release?.name || "未知",
+    apkFile: meta.apkFile || apk?.name || "boncatta.apk",
+    sourceUrl: apk?.browser_download_url || "",
+  };
+}
+
+async function latestApkMeta(req) {
+  if (process.env.BONCATTA_APK_URL) {
+    return {
+      versionCode: Number(process.env.BONCATTA_APK_VERSION_CODE || 0),
+      versionName: process.env.BONCATTA_APK_VERSION_NAME || "自定义版本",
+      apkFile: process.env.BONCATTA_APK_FILE || "boncatta.apk",
+      sourceUrl: process.env.BONCATTA_APK_URL,
+      apkUrl: `${publicBase(req)}/api/app/download`,
+    };
+  }
+  const response = await fetch(githubReleaseApi, {
+    headers: { "user-agent": "boncatta-api" },
+  });
+  if (!response.ok) throw httpError(502, "无法读取 APK 发布信息。");
+  const meta = parseReleaseMeta(await response.json());
+  return { ...meta, apkUrl: `${publicBase(req)}/api/app/download` };
+}
+
+async function proxyApk(req, res) {
+  const meta = await latestApkMeta(req);
+  if (!meta.sourceUrl) throw httpError(404, "没有可下载的 APK。");
+  const response = await fetch(meta.sourceUrl, { headers: { "user-agent": "boncatta-api" } });
+  if (!response.ok || !response.body) throw httpError(502, "APK 源下载失败。");
+  res.writeHead(200, {
+    "content-type": "application/vnd.android.package-archive",
+    "content-disposition": `attachment; filename="${meta.apkFile || "boncatta.apk"}"`,
+    "cache-control": "no-store",
+    "access-control-allow-origin": "*",
+  });
+  Readable.fromWeb(response.body).pipe(res);
+}
+
 async function api(req, res, path) {
   if (req.method === "OPTIONS") return json(res, 204, {});
   const body = req.method === "GET" ? {} : await readBody(req);
@@ -355,6 +412,14 @@ async function api(req, res, path) {
       note: value.note,
     }]));
     return json(res, 200, { ok: true, characters: CHARACTER_DEFS, modes });
+  }
+
+  if (req.method === "GET" && path === "/api/app/latest") {
+    return json(res, 200, { ok: true, ...(await latestApkMeta(req)) });
+  }
+
+  if (req.method === "GET" && path === "/api/app/download") {
+    return proxyApk(req, res);
   }
 
   if (req.method === "POST" && path === "/api/auth/login") {

@@ -33,6 +33,7 @@ android {
             signingConfig signingConfigs.boncattaDebug
         }
         release {
+            signingConfig signingConfigs.boncattaDebug
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

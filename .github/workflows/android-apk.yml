@@ -52,13 +52,18 @@ jobs:
       - name: Sync Capacitor
         run: npm run cap:sync
 
-      - name: Build debug APK
+      - name: Build signed release APK
         env:
           BONCATTA_VERSION_NAME: v0.0.${{ github.run_number }}
         run: |
           chmod +x android/gradlew
           cd android
-          ./gradlew assembleDebug
+          ./gradlew assembleRelease
+
+      - name: Verify APK signature
+        run: |
+          APK_PATH="android/app/build/outputs/apk/release/app-release.apk"
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/apksigner" verify --verbose --print-certs "$APK_PATH"
 
       - name: Publish latest APK release
         env:
@@ -66,7 +71,7 @@ jobs:
           VERSION_CODE: ${{ github.run_number }}
           VERSION_NAME: v0.0.${{ github.run_number }}
         run: |
-          APK_PATH="android/app/build/outputs/apk/debug/app-debug.apk"
+          APK_PATH="android/app/build/outputs/apk/release/app-release.apk"
           mkdir -p dist
           APK_FILE="boncatta-${VERSION_NAME}.apk"
           cp "$APK_PATH" "dist/${APK_FILE}"

@@ -411,10 +411,16 @@
     const current = await getInstalledAppInfo();
     $("appVersionInfo").textContent = current.native ? `当前 APK：${current.versionName} (${current.versionCode || "未知"})` : "当前为调试/网页模式。";
     try {
-      const response = await fetch(`${UPDATE_API}&t=${Date.now()}`, { cache: "no-store" });
-      const payload = await response.json();
-      const release = Array.isArray(payload) ? payload.find((item) => item.tag_name === "apk-latest") || payload[0] : payload;
-      const latest = parseReleaseMeta(release);
+      let latest;
+      try {
+        latest = await API.request(`/api/app/latest?t=${Date.now()}`);
+      } catch (apiError) {
+        if (window.Capacitor?.isNativePlatform?.()) throw apiError;
+        const response = await fetch(`${UPDATE_API}&t=${Date.now()}`, { cache: "no-store" });
+        const payload = await response.json();
+        const release = Array.isArray(payload) ? payload.find((item) => item.tag_name === "apk-latest") || payload[0] : payload;
+        latest = parseReleaseMeta(release);
+      }
       status.textContent = latest.versionCode > current.versionCode
         ? `发现新版：${latest.versionName} (${latest.versionCode})。`
         : `已是最新版：${current.versionName} (${current.versionCode || "未知"})。`;

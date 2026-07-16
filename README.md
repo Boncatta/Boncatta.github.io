@@ -25,6 +25,12 @@ npm run dev
 
 APK 内的前端只调用 API。默认后端地址是 `https://boncatta-api.onrender.com`；部署到其他云端时，把 `assets/baota-config.js` 里的 `window.BAOTA_API_BASE` 改为后端地址后再构建 APK。
 
+后端需要长期运行在云服务上，不能依赖本机。`render.yaml` 可用于 Render Blueprint；如果使用国内云或对象存储，可以设置：
+
+- `BONCATTA_DATA_DIR`：账号、房间、战绩 JSON 数据目录。
+- `BONCATTA_APK_URL`：国内可访问的 APK 下载源。设置后，App 更新会通过后端 `/api/app/download` 代理下载，不直接连 GitHub。
+- `BONCATTA_APK_VERSION_CODE` / `BONCATTA_APK_VERSION_NAME` / `BONCATTA_APK_FILE`：自定义更新包版本信息。
+
 移动端 APK：
 
 ```powershell
