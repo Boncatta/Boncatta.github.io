@@ -3,6 +3,8 @@ www/
 
 .server.pid
 .playwright-cli/
+.wrangler-dry-run/
+.wrangler-login*.log
 
 android/.gradle/
 android/app/src/main/assets/capacitor.config.json

@@ -30,6 +30,23 @@ docker build -t boncatta-api .
 docker run -p 8787:8787 -e BONCATTA_DATA_DIR=/data -v boncatta-data:/data boncatta-api
 ```
 
+Aliyun ECS production notes:
+
+```bash
+# Current API base:
+http://39.106.213.49
+
+# Service:
+systemctl status boncatta.service
+systemctl restart boncatta.service
+journalctl -u boncatta.service -n 100 --no-pager
+
+# Paths:
+/opt/boncatta/current
+/opt/boncatta/releases
+/opt/boncatta-data
+```
+
 腾讯云 CloudBase 云托管部署：
 
 ```powershell
@@ -38,7 +55,17 @@ tcb login
 .\tools\deploy-cloudbase.ps1 -EnvId 你的环境ID
 ```
 
-APK 内的前端只调用 API。默认后端地址是 `https://boncatta-api.onrender.com`；部署到其他云端时，把 `assets/baota-config.js` 里的 `window.BAOTA_API_BASE` 改为后端地址后再构建 APK。
+外网免费持久后端推荐 Cloudflare Workers + D1：
+
+```powershell
+npm install -g wrangler --registry=https://registry.npmmirror.com
+wrangler login
+wrangler d1 create boncatta-db
+# 把输出的 database_id 填入 wrangler.toml
+wrangler deploy
+```
+
+APK 内的前端只调用 API。默认后端地址是 `http://39.106.213.49`；部署到其他云端时，把 `assets/baota-config.js` 里的 `window.BAOTA_API_BASE` 改为后端地址后再构建 APK。
 
 后端需要长期运行在云服务上，不能依赖本机。`render.yaml` 可用于 Render Blueprint；如果使用国内云或对象存储，可以设置：
 
