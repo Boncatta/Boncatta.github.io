@@ -27,6 +27,7 @@ export const SKILL_META = {
   poison_attack: ["毒瓶", COLORS.attack],
   mage_ultimate: ["绝对零度", COLORS.ultimate],
   medicine_both_heal: ["群体治疗", COLORS.survive],
+  empty_needle: ["空针", COLORS.utility],
   medicine_crit_heal: ["嗜血之疗", COLORS.hybrid],
   medicine_crit_silence: ["沉默重击", COLORS.attack],
   medicine_boost_heal: ["治愈整备", COLORS.utility],
@@ -50,14 +51,14 @@ export const SKILL_META = {
 };
 
 export const CHARACTER_DEFS = [
-  { id: "undead", name: "亡灵战神", desc: "掌控黑暗之力的不死战士", skills: [["普通攻击", 30, "normal_attack"], ["致命暴击", 10, "critical_hit"], ["骸骨护盾", 15, "gain_shield"], ["黑暗反噬", 5, "self_harm"], ["生灵禁术", 15, "blood_swap1"], ["死亡尖啸", 5, "silence"], ["深渊治愈", 4, "heal"], ["燃血轰击", 15, "double_attack"], ["终焉之剑", 1, "undead_ultimate"]] },
-  { id: "frost", name: "冰霜法师", desc: "操纵寒冰之力的法术大师", skills: [["普通攻击", 30, "normal_attack"], ["治疗之术", 10, "heal"], ["冰晶护盾", 15, "ice_shield"], ["寂灭冰封", 15, "ice_silence"], ["爆裂黎明", 5, "bomb_attack"], ["致命毒药", 4, "poison_attack"], ["冰蓝末日", 10, "ice_attack"], ["赤色复苏", 10, "red_recovery"], ["绝对零度", 1, "mage_ultimate"]] },
+  { id: "undead", name: "亡灵战神", desc: "掌控黑暗之力的不死战士", skills: [["普通攻击", 20, "normal_attack"], ["致命暴击", 10, "critical_hit"], ["骸骨护盾", 15, "gain_shield"], ["黑暗反噬", 9, "self_harm"], ["生灵禁术", 15, "blood_swap1"], ["死亡尖啸", 5, "silence"], ["燃血斩击", 25, "double_attack"], ["终焉之剑", 1, "undead_ultimate"]] },
+  { id: "frost", name: "冰霜法师", desc: "操纵寒冰之力的法术大师", skills: [["普通攻击", 25, "normal_attack"], ["治疗之术", 10, "heal"], ["冰晶护盾", 10, "ice_shield"], ["寂灭冰封", 10, "ice_silence"], ["爆裂瓶", 14, "bomb_attack"], ["冰蓝末日", 15, "ice_attack"], ["赤色复苏", 15, "red_recovery"], ["绝对零度", 1, "mage_ultimate"]] },
   { id: "loser", name: "流浪之人", desc: "搜寻垃圾之力的超级战士", skills: [["捡起棍子", 55, "normal_attack"], ["捡起药瓶", 25, "heal"], ["高效捡拾", 20, "two_more"]] },
-  { id: "medicine", name: "药药超人", desc: "精通治疗之术的医疗专家", skills: [["普通攻击", 30, "normal_attack"], ["治疗之术", 30, "heal"], ["群体治疗", 10, "medicine_both_heal"], ["嗜血之疗", 10, "medicine_crit_heal"], ["沉默重击", 10, "medicine_crit_silence"], ["治愈整备", 9, "medicine_boost_heal"], ["愈合秘法", 1, "medicine_mega_heal"]] },
-  { id: "legend", name: "传奇大剑", desc: "手持剑阁巨剑的战场主宰", skills: [["普通攻击", 40, "normal_attack"], ["治疗之术", 20, "heal"], ["双重打击", 10, "double_normal_attack"], ["快速袭击", 5, "attack_and_draw"], ["嗜血一击", 5, "attack_and_heal"], ["持盾袭击", 5, "attack_and_shield"], ["裂空一击", 5, "half_hp_and_attack"], ["力量凝聚", 9, "double_next_attack"], ["毁灭三连", 1, "self_harm_and_triple_critical"]] },
-  { id: "car", name: "车王祥子", desc: "速度激情魔力的至高化身", skills: [["普通攻击", 10, "normal_attack"], ["致命暴击", 30, "critical_hit"], ["治疗之术", 10, "heal"], ["狂暴治疗", 15, "critical_heal"], ["无畏冲击", 15, "double_deduction"], ["无畏连打", 10, "double_deduction_and_draw"], ["生命削减", 4, "half_hp_both"], ["暴力连打", 5, "attack_critical_draw"], ["终极连招", 1, "double_deduction_30_attack_critical_draw"]] },
-  { id: "tata", name: "塔塔塔塔", desc: "喜欢用火把的塔希斯小姐", skills: [["普通攻击", 35, "normal_attack"], ["治疗之术", 15, "heal"], ["致命暴击", 10, "critical_hit"], ["狂暴治疗", 5, "critical_heal"], ["不凡护盾", 5, "gain_shield"], ["无畏冲击", 4, "double_deduction"], ["群体治疗", 4, "both_heal_10"], ["无中生有", 7, "two_more"], ["沉默猫咪", 5, "silence"], ["生命转换", 3, "blood_swap"], ["生命削减", 6, "half_hp_both"], ["未来之击", 1, "critical_and_critical_heal_and_draw"]] },
-  { id: "knight", name: "剑盾骑士", desc: "顶级攻守兼备的战场守护", skills: [["普通攻击", 25, "normal_attack"], ["治疗之术", 5, "heal"], ["连续打击", 20, "attack_and_draw"], ["守护之盾", 25, "gain_shield"], ["荆棘之盾", 5, "shield_and_self_harm_10"], ["重压晕眩", 6, "silence"], ["生命削减", 13, "half_hp_both"], ["骑士奥义", 1, "knight_ultimate"]] },
+  { id: "medicine", name: "药药超人", desc: "精通治疗之术的医疗专家", skills: [["普通攻击", 30, "normal_attack"], ["空针", 25, "empty_needle"], ["群体治疗", 10, "medicine_both_heal"], ["嗜血之疗", 15, "medicine_crit_heal"], ["沉默重击", 10, "medicine_crit_silence"], ["治愈整备", 9, "medicine_boost_heal"], ["愈合秘法", 1, "medicine_mega_heal"]] },
+  { id: "legend", name: "传奇大剑", desc: "手持剑阁巨剑的战场主宰", skills: [["普通攻击", 40, "normal_attack"], ["治疗之术", 5, "heal"], ["护盾", 15, "gain_shield"], ["双重打击", 10, "double_normal_attack"], ["快速袭击", 5, "attack_and_draw"], ["嗜血一击", 5, "attack_and_heal"], ["持盾袭击", 5, "attack_and_shield"], ["裂空一击", 5, "half_hp_and_attack"], ["力量凝聚", 9, "double_next_attack"], ["毁灭三连", 1, "self_harm_and_triple_critical"]] },
+  { id: "car", name: "车王祥子", desc: "速度激情魔力的至高化身", skills: [["普通攻击", 15, "normal_attack"], ["致命暴击", 25, "critical_hit"], ["治疗之术", 10, "heal"], ["狂暴治疗", 15, "critical_heal"], ["无畏冲击", 15, "double_deduction"], ["无畏连打", 10, "double_deduction_and_draw"], ["生命削减", 4, "half_hp_both"], ["暴力连打", 5, "attack_critical_draw"], ["终极连招", 1, "double_deduction_30_attack_critical_draw"]] },
+  { id: "tata", name: "塔塔塔塔", desc: "喜欢用火把的塔希斯小姐", skills: [["普通攻击", 35, "normal_attack"], ["治疗之术", 15, "heal"], ["致命暴击", 10, "critical_hit"], ["狂暴治疗", 5, "critical_heal"], ["不凡护盾", 5, "gain_shield"], ["无畏冲击", 4, "double_deduction"], ["群体治疗", 4, "both_heal_10"], ["无中生有", 8, "two_more"], ["沉默猫咪", 5, "silence"], ["生命转换", 3, "blood_swap"], ["生命削减", 5, "half_hp_both"], ["未来之击", 1, "critical_and_critical_heal_and_draw"]] },
+  { id: "knight", name: "剑盾骑士", desc: "顶级攻守兼备的战场守护", skills: [["普通攻击", 25, "normal_attack"], ["治疗之术", 5, "heal"], ["连续打击", 20, "attack_and_draw"], ["守护之盾", 25, "gain_shield"], ["荆棘之盾", 5, "shield_and_self_harm_10"], ["重压晕眩", 4, "silence"], ["生命削减", 15, "half_hp_both"], ["骑士奥义", 1, "knight_ultimate"]] },
 ];
 
 export const CHARACTER_BY_ID = Object.fromEntries(CHARACTER_DEFS.map((item) => [item.id, item]));
@@ -344,6 +345,13 @@ export class BattleEngine {
 
   heal(target, amount, source, ctx) {
     if (!target || target.health <= 0) return;
+    if ((target.emptyNeedle || 0) > 0) {
+      target.emptyNeedle -= 1;
+      target.health -= amount;
+      this.log(`${source.displayName} 触发 ${target.displayName} 身上的空针，治疗转为${amount}点伤害。`);
+      this.mark(ctx, target);
+      return;
+    }
     target.health += amount;
     this.log(`${source.displayName} 使 ${target.displayName} 恢复${amount}点生命值。`);
     this.mark(ctx, target);
@@ -532,21 +540,22 @@ export class BattleEngine {
       poison_attack: () => { this.targets(ctx, "enemy", "all").forEach((target) => this.damage(target, 10, attacker, "毒药伤害", ctx)); this.damage(attacker, 30, attacker, "毒雾反噬", ctx); },
       mage_ultimate: () => { this.damage(enemy(), 30, attacker, "绝对零度", ctx); this.heal(attacker, 30, attacker, ctx); },
       medicine_both_heal: () => { groupHeal(10); attacker.healMultiplier = 1; },
-      medicine_crit_heal: () => { crit(enemy()); selfHeal(10); attacker.healMultiplier = 1; resetAttack(); },
-      medicine_crit_silence: () => { const target = enemy(); crit(target); this.silence(target, 1, attacker, ctx); resetAttack(); },
-      medicine_boost_heal: () => { attacker.healMultiplier *= 2; this.log(`${attacker.displayName} 强化治疗效果。`); this.mark(ctx, attacker); },
+      empty_needle: () => { const target = enemy(); if (target) { target.emptyNeedle = (target.emptyNeedle || 0) + 1; this.log(`${attacker.displayName} 对 ${target.displayName} 注入空针。`); this.mark(ctx, target); } },
+      medicine_crit_heal: () => { this.damage(enemy(), 10 * attacker.attackMultiplier, attacker, "嗜血伤害", ctx); selfHeal(10); attacker.healMultiplier = 1; resetAttack(); },
+      medicine_crit_silence: () => { const target = enemy(); this.damage(target, 10 * attacker.attackMultiplier, attacker, "沉默重击", ctx); this.silence(target, 1, attacker, ctx); resetAttack(); },
+      medicine_boost_heal: () => { attacker.healMultiplier = Math.max(attacker.healMultiplier || 1, 2); this.log(`${attacker.displayName} 强化下一次治疗效果。`); this.mark(ctx, attacker); },
       medicine_mega_heal: () => { selfHeal(60); attacker.healMultiplier = 1; },
       double_normal_attack: () => { const mult = attacker.attackMultiplier; this.combo(ctx, "enemy", 2).forEach((target) => normal(target, mult)); resetAttack(); },
       attack_and_draw: () => { normal(enemy()); resetAttack(); attacker.actionPoints += 1; this.log(`${attacker.displayName} 获得1个额外行动点。`); },
       attack_and_heal: () => { normal(enemy()); resetAttack(); selfHeal(10); attacker.healMultiplier = 1; },
       attack_and_shield: () => { normal(enemy()); resetAttack(); this.addShield(attacker, "normal", 1, attacker, ctx); },
-      half_hp_and_attack: () => { this.allHalf(attacker, ctx); normal(enemy()); resetAttack(); },
-      double_next_attack: () => { attacker.attackMultiplier *= 2; this.log(`${attacker.displayName} 下次攻击威力翻倍。`); this.mark(ctx, attacker); },
+      half_hp_and_attack: () => { this.allHalf(attacker, ctx); },
+      double_next_attack: () => { attacker.attackMultiplier = Math.max(attacker.attackMultiplier || 1, 2); this.log(`${attacker.displayName} 下次攻击威力翻倍。`); this.mark(ctx, attacker); },
       self_harm_and_triple_critical: () => { const mult = attacker.attackMultiplier; this.combo(ctx, "enemy", 3).forEach((target) => crit(target, mult)); resetAttack(); if (!this.checkGameOver()) this.damage(attacker, 40, attacker, "毁灭代价", ctx, false); },
       double_deduction: () => this.allDamage(attacker, 10, "全场冲击", ctx),
       double_deduction_and_draw: () => { this.allDamage(attacker, 10, "全场连打", ctx); attacker.actionPoints += 1; },
       half_hp_both: () => this.allHalf(attacker, ctx),
-      attack_critical_draw: () => { const [a, b] = this.combo(ctx, "enemy", 2); normal(a); crit(b); resetAttack(); attacker.actionPoints += 1; },
+      attack_critical_draw: () => { const [a, b] = this.combo(ctx, "enemy", 2); normal(a); normal(b); resetAttack(); attacker.actionPoints += 1; },
       double_deduction_30_attack_critical_draw: () => { this.allDamage(attacker, 30, "终极全场冲击", ctx); const [a, b] = this.combo(ctx, "enemy", 2); normal(a); crit(b); resetAttack(); attacker.actionPoints += 1; },
       both_heal_10: () => { groupHeal(10); attacker.healMultiplier = 1; },
       critical_and_critical_heal_and_draw: () => { crit(enemy()); resetAttack(); selfHeal(20); attacker.healMultiplier = 1; attacker.actionPoints += 2; },
