@@ -7,7 +7,10 @@
 
   function inferBase() {
     const configured = String(window.BAOTA_API_BASE || "").replace(/\/$/, "");
-    const isCapacitorHost = location.protocol === "capacitor:" || (location.protocol === "https:" && location.hostname === "localhost" && !location.port);
+    const isNative = Boolean(window.Capacitor?.isNativePlatform?.());
+    const isCapacitorHost = isNative
+      || location.protocol === "capacitor:"
+      || (["http:", "https:"].includes(location.protocol) && location.hostname === "localhost" && !location.port);
     if (isCapacitorHost) return configured || "http://localhost:8787";
     if (["localhost", "127.0.0.1"].includes(location.hostname)) return location.origin;
     if (configured) return configured;
