@@ -5,7 +5,7 @@
 
   const $ = (id) => document.getElementById(id);
   const UPDATE_API = "https://api.github.com/repos/Boncatta/Boncatta.github.io/releases?per_page=5";
-  const state = { user: null, meta: null, rooms: [], room: null, poll: 0, mode: "duel" };
+  const state = { user: null, meta: null, rooms: [], room: null, poll: 0, mode: "duel", targets: { mode: "step", steps: [], multi: [] } };
 
   function modeKeys() {
     return Object.keys(state.meta?.modes || {});
@@ -285,6 +285,36 @@
     return index === 0 ? "房主" : "访客";
   }
 
+  function hpTone(health) {
+    if (health <= 30) return "low";
+    if (health <= 60) return "mid";
+    return "high";
+  }
+
+  function selectedOrders(index) {
+    const list = state.targets.mode === "multi" ? state.targets.multi : state.targets.steps;
+    return list.map((value, position) => (value === index ? position + 1 : 0)).filter(Boolean);
+  }
+
+  function pendingAction() {
+    return state.room?.battle?.pendingAction || null;
+  }
+
+  function canCurrentUserAct() {
+    const battle = state.room?.battle;
+    const current = battle?.players?.[battle.current];
+    return Boolean(current && state.room?.mySeats?.includes(current.seatIndex) && !battle.gameOver);
+  }
+
+  function clearTargets() {
+    state.targets.steps = [];
+    state.targets.multi = [];
+  }
+
+  function activeTargetList() {
+    return state.targets.mode === "multi" ? state.targets.multi : state.targets.steps;
+  }
+
   function renderBattle() {
     const battle = state.room?.battle;
     const board = $("battleBoard");
@@ -298,10 +328,13 @@
       : "随机数：等待首次行动";
     $("fighterBoard").innerHTML = (battle.players || []).map((player, index) => {
       const hp = Math.max(0, Math.min(100, Number(player.health) || 0));
-      return `<article class="fighter-card ${battle.current === index ? "current" : ""} ${player.health <= 0 ? "dead" : ""}">
-        <div><strong>${escape(player.displayName)}</strong><small>${escape(seatTeamLabel(state.room.mode, player.seatIndex))}</small></div>
-        <div class="hp-bar"><span style="width:${hp}%"></span></div>
-        <footer><span>HP ${Math.max(0, player.health)}</span><span>盾 ${player.shield || 0}</span><span>点 ${player.actionPoints || 0}</span></footer>
+      const orders = selectedOrders(index);
+      const selected = orders.length > 0;
+      return `<article class="fighter-card ${battle.current === index ? "current" : ""} ${selected ? "selected" : ""} ${player.health <= 0 ? "dead" : ""}" data-target-index="${index}">
+        ${selected ? `<b class="target-badge">${orders.join("/")}</b>` : ""}
+        <div class="fighter-head"><strong>${escape(player.displayName)}</strong><small>${escape(seatTeamLabel(state.room.mode, player.seatIndex))}</small></div>
+        <div class="hp-bar ${hpTone(hp)}"><span style="width:${hp}%"></span></div>
+        <footer><span>HP ${Math.max(0, player.health)}</span><span>盾 ${player.shield || 0}</span><span>行动 ${player.actionPoints || 0}</span></footer>
       </article>`;
     }).join("");
     $("battleLog").innerHTML = (battle.logs || []).map((entry) => `<p ${entry.color ? `style="color:${entry.color}"` : ""}>${escape(entry.text)}</p>`).join("");
@@ -311,27 +344,74 @@
 
   function renderTargets() {
     const battle = state.room?.battle;
-    const ids = ["targetPrimary", "targetSecondary", "targetTertiary", "targetMulti"];
-    const current = battle?.players?.[battle.current];
-    const canAct = Boolean(current && state.room.mySeats?.includes(current.seatIndex) && !battle.gameOver);
+    const canAct = canCurrentUserAct();
+    const pending = pendingAction();
     const living = (battle?.players || []).map((player, index) => ({ player, index })).filter(({ player }) => player.health > 0);
-    const html = living.length ? living.map(({ player, index }) => `<option value="${index}">${escape(player.displayName)} · HP ${Math.max(0, player.health)}</option>`).join("") : `<option value="">无目标</option>`;
-    ids.forEach((id) => {
-      const node = $(id);
-      if (!node) return;
-      node.innerHTML = html;
-      node.disabled = !canAct;
-    });
-    $("actButton").disabled = !canAct;
+    const valid = new Set(living.map(({ index }) => index));
+    state.targets.steps = state.targets.steps.filter((index) => valid.has(index));
+    state.targets.multi = state.targets.multi.filter((index) => valid.has(index));
+    const activeList = activeTargetList();
+    const selectedNames = activeList.map((index) => battle.players[index]?.displayName).filter(Boolean);
+    if ($("targetHint")) {
+      if (!canAct) $("targetHint").textContent = isAiTurn() ? "AI 思考中，稍等一下" : "等待其他玩家行动";
+      else if (!pending) $("targetHint").textContent = "先点击“掷技能”，看到本次行动后再选择目标";
+      else if (state.targets.mode === "multi") {
+        $("targetHint").textContent = `本次：${pending.name}。一次多选：${selectedNames.length ? selectedNames.join(" / ") : "点选一个或多个目标"}`;
+      } else {
+        $("targetHint").textContent = `本次：${pending.name}。逐次点选：${selectedNames.length ? selectedNames.map((name, i) => `${i + 1}.${name}`).join(" / ") : "按技能顺序点目标"}`;
+      }
+    }
+    $("targetStepMode")?.classList.toggle("active", state.targets.mode === "step");
+    $("targetMultiMode")?.classList.toggle("active", state.targets.mode === "multi");
+    if ($("targetStepMode")) $("targetStepMode").disabled = !canAct || !pending;
+    if ($("targetMultiMode")) $("targetMultiMode").disabled = !canAct || !pending;
+    if ($("actButton")) {
+      $("actButton").textContent = pending ? "确认行动" : "掷技能";
+      $("actButton").disabled = !canAct;
+    }
   }
 
   function collectTargets() {
+    const list = (state.targets.mode === "multi" ? state.targets.multi : state.targets.steps).filter((value) => value != null);
+    const fallback = list[0] ?? 0;
     return {
-      primary: Number($("targetPrimary").value),
-      secondary: Number($("targetSecondary").value),
-      tertiary: Number($("targetTertiary").value),
-      multi: Array.from($("targetMulti").selectedOptions).map((option) => Number(option.value)),
+      primary: list[0] ?? fallback,
+      secondary: list[1] ?? fallback,
+      tertiary: list[2] ?? list[1] ?? fallback,
+      multi: state.targets.mode === "multi" ? list : [fallback],
     };
+  }
+
+  function chooseTarget(index) {
+    const battle = state.room?.battle;
+    const current = battle?.players?.[battle.current];
+    const canAct = Boolean(current && state.room.mySeats?.includes(current.seatIndex) && !battle.gameOver);
+    const target = battle?.players?.[index];
+    if (!canAct || !target || target.health <= 0) return;
+    if (!pendingAction()) {
+      C.toast("先掷技能，再选目标");
+      return;
+    }
+    if (state.targets.mode === "multi") {
+      state.targets.multi = state.targets.multi.includes(index)
+        ? state.targets.multi.filter((item) => item !== index)
+        : [...state.targets.multi, index];
+      if (!state.targets.multi.length) state.targets.multi = [index];
+    } else {
+      state.targets.steps = [...state.targets.steps, index].slice(-3);
+    }
+    renderBattle();
+  }
+
+  function setTargetMode(mode) {
+    state.targets.mode = mode;
+    renderBattle();
+  }
+
+  function isAiTurn() {
+    const battle = state.room?.battle;
+    const current = battle?.players?.[battle.current];
+    return Boolean(current?.username?.startsWith("AI#") && !battle.gameOver);
   }
 
   function renderGameRoom() {
@@ -344,12 +424,17 @@
     const isHost = state.room.host === state.user?.username;
     const inRoom = Boolean(state.room.mySeats?.length);
     const locked = state.room.status === "playing" || state.room.status === "finished";
+    const inBattle = Boolean(state.room.battle);
+    document.body.classList.toggle("is-battling", inBattle);
     $("startBattle").hidden = !isHost || locked;
     $("addAi").hidden = !isHost || locked || state.room.count >= state.room.maxSeats;
+    $("actAi").hidden = true;
     $("leaveRoom").hidden = !inRoom || state.room.status === "playing";
     $("backLobby").hidden = false;
     $("resetBattle").hidden = state.room.host !== state.user?.username || !state.room.battle;
+    if ($("startBattle")) $("startBattle").closest(".room-command").hidden = inBattle;
     renderSeats();
+    if ($("seatBoard")) $("seatBoard").hidden = inBattle;
     renderBattle();
   }
 
@@ -365,7 +450,23 @@
 
   async function act() {
     try {
-      const payload = await API.act(state.room.code, collectTargets());
+      const pending = pendingAction();
+      if (!pending) clearTargets();
+      const payload = pending
+        ? await API.resolve(state.room.code, collectTargets())
+        : await API.roll(state.room.code);
+      state.room = payload.room;
+      if (pending) clearTargets();
+      renderGameRoom();
+    } catch (error) {
+      C.toast(error.message);
+    }
+  }
+
+  async function actAi() {
+    if (!state.room?.code) return;
+    try {
+      const payload = await API.actAi(state.room.code);
       state.room = payload.room;
       renderGameRoom();
     } catch (error) {
@@ -551,10 +652,18 @@
     $("joinRoom")?.addEventListener("click", joinRoom);
     $("startBattle")?.addEventListener("click", startBattle);
     $("addAi")?.addEventListener("click", addAi);
+    $("actAi")?.addEventListener("click", actAi);
     $("leaveRoom")?.addEventListener("click", leaveRoom);
     $("backLobby")?.addEventListener("click", backLobby);
     $("resetBattle")?.addEventListener("click", resetBattle);
     $("actButton")?.addEventListener("click", act);
+    $("targetStepMode")?.addEventListener("click", () => setTargetMode("step"));
+    $("targetMultiMode")?.addEventListener("click", () => setTargetMode("multi"));
+    $("fighterBoard")?.addEventListener("click", (event) => {
+      const card = event.target.closest("[data-target-index]");
+      if (!card) return;
+      chooseTarget(Number(card.dataset.targetIndex));
+    });
     $("gameRefresh")?.addEventListener("click", async () => {
       await loadCurrentRoom();
       renderGameRoom();

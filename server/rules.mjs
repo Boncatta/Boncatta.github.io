@@ -177,6 +177,7 @@ export class BattleEngine {
     this.skillText = "等待行动";
     this.skillColor = "#93a4b8";
     this.lastRoll = null;
+    this.pendingAction = null;
     this.winnerTeam = null;
     this.logs = [];
     if (this.current != null) this.players[this.current].actionPoints = 1;
@@ -199,6 +200,7 @@ export class BattleEngine {
     engine.skillText = snapshot?.skillText || "等待行动";
     engine.skillColor = snapshot?.skillColor || "#93a4b8";
     engine.lastRoll = snapshot?.lastRoll || null;
+    engine.pendingAction = snapshot?.pendingAction ? { ...snapshot.pendingAction } : null;
     engine.winnerTeam = snapshot?.winnerTeam ?? null;
     engine.logs = snapshot?.logs || [];
     return engine;
@@ -215,6 +217,7 @@ export class BattleEngine {
       skillText: this.skillText,
       skillColor: this.skillColor,
       lastRoll: this.lastRoll,
+      pendingAction: this.pendingAction ? { ...this.pendingAction } : null,
       winnerTeam: this.winnerTeam,
       logs: this.logs.slice(-260),
     };
@@ -388,6 +391,7 @@ export class BattleEngine {
     if (teams.size > 1) return false;
     this.gameOver = true;
     this.current = null;
+    this.pendingAction = null;
     this.winnerTeam = teams.size ? [...teams][0] : null;
     if (!teams.size) this.skillText = "平局。";
     else {
@@ -403,6 +407,7 @@ export class BattleEngine {
 
   advanceTurn() {
     if (this.checkGameOver()) return;
+    this.pendingAction = null;
     const old = this.turnOrder.indexOf(this.current);
     let pointer = old >= 0 ? old : 0;
     for (let guard = 0; guard < this.turnOrder.length * 6; guard += 1) {
@@ -427,20 +432,52 @@ export class BattleEngine {
 
   takeAction(rawTargets) {
     if (this.gameOver || this.current == null) return;
+    this.rollPendingAction();
+    this.resolvePendingAction(rawTargets);
+  }
+
+  rollPendingAction() {
+    if (this.gameOver || this.current == null) return null;
     const attacker = this.currentFighter();
-    const ctx = this.context(rawTargets);
-    const result = this.rollSkill(attacker, ctx);
+    if (!attacker) return null;
+    if (this.pendingAction?.attackerIndex === this.current) return this.pendingAction;
+    const result = this.rollSkill(attacker);
     const meta = result.handler ? SKILL_META[result.handler] : null;
     this.skillColor = meta?.[1] || "#e2e8f0";
+    this.pendingAction = {
+      name: result.name,
+      handler: result.handler,
+      roll: result.roll,
+      range: result.range,
+      attackerIndex: this.current,
+      attackerName: attacker.displayName,
+    };
+    this.lastRoll = result.roll ? { roll: result.roll, max: 100, skill: result.name, target: "等待选择目标", range: result.range } : null;
+    this.skillText = `${attacker.displayName} 掷出了 [${result.name}] · 随机数 ${result.roll}/100`;
+    return this.pendingAction;
+  }
+
+  resolvePendingAction(rawTargets) {
+    if (this.gameOver || this.current == null) return;
+    const attacker = this.currentFighter();
+    if (!attacker) return;
+    if (!this.pendingAction || this.pendingAction.attackerIndex !== this.current) this.rollPendingAction();
+    const action = this.pendingAction;
+    if (!action) return;
+    const ctx = this.context(rawTargets);
+    if (action.handler) this.apply(action.handler, attacker, ctx);
+    const meta = action.handler ? SKILL_META[action.handler] : null;
+    this.skillColor = meta?.[1] || "#e2e8f0";
     const targetLabel = ctx.used.size ? [...ctx.used].join("、") : "未命中目标";
-    this.lastRoll = result.roll ? { roll: result.roll, max: 100, skill: result.name, target: targetLabel, range: result.range } : null;
-    this.skillText = `${attacker.displayName} 使用了 [${result.name}] · 随机数 ${result.roll}/100 · 目标 ${targetLabel}`;
+    this.lastRoll = action.roll ? { roll: action.roll, max: 100, skill: action.name, target: targetLabel, range: action.range } : null;
+    this.skillText = `${attacker.displayName} 使用了 [${action.name}] · 随机数 ${action.roll}/100 · 目标 ${targetLabel}`;
+    this.pendingAction = null;
     attacker.actionPoints -= 1;
     if (this.checkGameOver()) return;
     if (attacker.actionPoints <= 0) this.advanceTurn();
   }
 
-  rollSkill(attacker, ctx) {
+  rollSkill(attacker) {
     const def = CHARACTER_BY_ID[attacker.characterId] || CHARACTER_DEFS[0];
     const roll = Math.floor(Math.random() * 100) + 1;
     this.log(`${attacker.displayName} 行动随机数：${roll}/100。`, "#93c5fd");
@@ -450,7 +487,6 @@ export class BattleEngine {
       cumulative += probability;
       if (roll <= cumulative) {
         this.log(`命中区间：${start}-${cumulative}，技能：[${name}]`, "#93c5fd");
-        this.apply(handler, attacker, ctx);
         return { name, handler, roll, range: [start, cumulative] };
       }
     }

@@ -59,7 +59,10 @@
     addAi(code, options = {}) { return this.request(`/api/rooms/${encodeURIComponent(code)}/ai`, { method: "POST", body: options }); },
     selection(code, selections) { return this.request(`/api/rooms/${encodeURIComponent(code)}/selection`, { method: "POST", body: { selections } }); },
     start(code) { return this.request(`/api/rooms/${encodeURIComponent(code)}/start`, { method: "POST" }); },
+    roll(code) { return this.request(`/api/rooms/${encodeURIComponent(code)}/roll`, { method: "POST" }); },
+    resolve(code, targets) { return this.request(`/api/rooms/${encodeURIComponent(code)}/resolve`, { method: "POST", body: { targets } }); },
     act(code, targets) { return this.request(`/api/rooms/${encodeURIComponent(code)}/action`, { method: "POST", body: { targets } }); },
+    actAi(code) { return this.request(`/api/rooms/${encodeURIComponent(code)}/ai-turn`, { method: "POST" }); },
     reset(code) { return this.request(`/api/rooms/${encodeURIComponent(code)}/reset`, { method: "POST" }); },
     leave(code) { return this.request(`/api/rooms/${encodeURIComponent(code)}/leave`, { method: "POST" }); },
   };

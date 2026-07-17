@@ -26,6 +26,8 @@ const sessionDays = 30;
 const roomMaxAgeMs = 1000 * 60 * 60 * 6;
 const githubReleaseApi = "https://api.github.com/repos/Boncatta/Boncatta.github.io/releases/tags/apk-latest";
 const aiNames = ["Tata", "Frost", "Med", "Blade", "Knight", "Nova"];
+const aiDelayMs = Number(process.env.BONCATTA_AI_DELAY_MS || 750);
+const aiTimers = new Map();
 
 const mime = {
   ".html": "text/html; charset=utf-8",
@@ -278,9 +280,9 @@ function startRoom(room, username) {
   room.status = "playing";
   room.battle = new BattleEngine(room.mode, occupied).clone();
   room.statsApplied = false;
-  runAiTurns(room);
   room.updatedAt = nowIso();
   saveDb();
+  scheduleAiIfNeeded(room);
   return room;
 }
 
@@ -315,6 +317,36 @@ function runAiTurns(room, limit = 24) {
   }
   room.battle = engine.clone();
   room.status = room.battle.gameOver ? "finished" : "playing";
+}
+
+function scheduleAiIfNeeded(room, delay = aiDelayMs) {
+  if (!room?.code || !room.battle || room.status !== "playing") return;
+  const engine = BattleEngine.fromSnapshot(room.battle, room.mode);
+  const current = engine.currentFighter();
+  if (!current || !isAiUsername(current.username) || engine.gameOver) return;
+  const code = room.code.toUpperCase();
+  if (aiTimers.has(code)) return;
+  const timer = setTimeout(() => {
+    aiTimers.delete(code);
+    try {
+      const liveRoom = getDb().rooms[code];
+      if (!liveRoom?.battle || liveRoom.status !== "playing") return;
+      const liveEngine = BattleEngine.fromSnapshot(liveRoom.battle, liveRoom.mode);
+      const liveCurrent = liveEngine.currentFighter();
+      if (!liveCurrent || !isAiUsername(liveCurrent.username) || liveEngine.gameOver) return;
+      liveEngine.takeAction(aiTargets(liveEngine));
+      liveRoom.battle = liveEngine.clone();
+      liveRoom.status = liveRoom.battle.gameOver ? "finished" : "playing";
+      liveRoom.updatedAt = nowIso();
+      applyStats(liveRoom);
+      saveDb({ backup: liveRoom.status === "finished" });
+      scheduleAiIfNeeded(liveRoom);
+    } catch (error) {
+      console.error(`AI turn failed for room ${code}:`, error);
+    }
+  }, Math.max(200, delay));
+  timer.unref?.();
+  aiTimers.set(code, timer);
 }
 
 function applyStats(room) {
@@ -352,12 +384,52 @@ function actRoom(room, username, targets) {
   engine.takeAction(targets || {});
   room.battle = engine.clone();
   room.status = room.battle.gameOver ? "finished" : "playing";
-  runAiTurns(room);
   room.updatedAt = nowIso();
   getDb().users[username].stats.actions += 1;
   getDb().users[username].updatedAt = nowIso();
   applyStats(room);
   saveDb({ backup: room.status === "finished" });
+  scheduleAiIfNeeded(room);
+  return room;
+}
+
+function rollRoom(room, username) {
+  if (!canAct(room, username)) throw httpError(403, "现在不是你的行动。");
+  const engine = BattleEngine.fromSnapshot(room.battle, room.mode);
+  engine.rollPendingAction();
+  room.battle = engine.clone();
+  room.updatedAt = nowIso();
+  saveDb();
+  return room;
+}
+
+function resolveRoom(room, username, targets) {
+  if (!canAct(room, username)) throw httpError(403, "现在不是你的行动。");
+  const engine = BattleEngine.fromSnapshot(room.battle, room.mode);
+  engine.resolvePendingAction(targets || {});
+  room.battle = engine.clone();
+  room.status = room.battle.gameOver ? "finished" : "playing";
+  room.updatedAt = nowIso();
+  getDb().users[username].stats.actions += 1;
+  getDb().users[username].updatedAt = nowIso();
+  applyStats(room);
+  saveDb({ backup: room.status === "finished" });
+  scheduleAiIfNeeded(room);
+  return room;
+}
+
+function actAiRoom(room) {
+  if (!room.battle || room.status !== "playing") throw httpError(409, "Battle is not running.");
+  const engine = BattleEngine.fromSnapshot(room.battle, room.mode);
+  const current = engine.currentFighter();
+  if (!current || !isAiUsername(current.username)) throw httpError(409, "Current fighter is not AI.");
+  engine.takeAction(aiTargets(engine));
+  room.battle = engine.clone();
+  room.status = room.battle.gameOver ? "finished" : "playing";
+  room.updatedAt = nowIso();
+  applyStats(room);
+  saveDb({ backup: room.status === "finished" });
+  scheduleAiIfNeeded(room);
   return room;
 }
 
@@ -529,6 +601,7 @@ async function api(req, res, path) {
   }
 
   if (req.method === "GET" && path === "/api/rooms") {
+    Object.values(getDb().rooms).forEach((room) => scheduleAiIfNeeded(room));
     const rooms = Object.values(getDb().rooms)
       .map((room) => ({ ...summarizeRoom(room), mySeats: seatsForUser(room, session.username) }))
       .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
@@ -541,14 +614,17 @@ async function api(req, res, path) {
     return json(res, 200, { ok: true, room: publicRoomFor(room, session.username) });
   }
 
-  const roomMatch = path.match(/^\/api\/rooms\/([A-Z0-9]{5})(?:\/([a-z]+))?$/i);
+  const roomMatch = path.match(/^\/api\/rooms\/([A-Z0-9]{5})(?:\/([a-z-]+))?$/i);
   if (roomMatch) {
     const code = roomMatch[1].toUpperCase();
     const action = roomMatch[2] || "";
     const room = getDb().rooms[code];
     if (!room) return fail(res, 404, "房间不存在。");
 
-    if (req.method === "GET" && !action) return json(res, 200, { ok: true, room: publicRoomFor(room, session.username) });
+    if (req.method === "GET" && !action) {
+      scheduleAiIfNeeded(room);
+      return json(res, 200, { ok: true, room: publicRoomFor(room, session.username) });
+    }
     if (req.method === "POST" && action === "join") return json(res, 200, { ok: true, room: publicRoomFor(joinRoom(room, session.username, body.selections || body.selection), session.username) });
     if (req.method === "POST" && action === "ai") {
       if (room.host !== session.username) throw httpError(403, "Only host can add AI.");
@@ -557,7 +633,10 @@ async function api(req, res, path) {
     }
     if (req.method === "POST" && action === "selection") return json(res, 200, { ok: true, room: publicRoomFor(applySelectionsToRoom(room, session.username, body.selections || body.selection), session.username) });
     if (req.method === "POST" && action === "start") return json(res, 200, { ok: true, room: publicRoomFor(startRoom(room, session.username), session.username) });
+    if (req.method === "POST" && action === "roll") return json(res, 200, { ok: true, room: publicRoomFor(rollRoom(room, session.username), session.username) });
+    if (req.method === "POST" && action === "resolve") return json(res, 200, { ok: true, room: publicRoomFor(resolveRoom(room, session.username, body.targets), session.username) });
     if (req.method === "POST" && action === "action") return json(res, 200, { ok: true, room: publicRoomFor(actRoom(room, session.username, body.targets), session.username) });
+    if (req.method === "POST" && action === "ai-turn") return json(res, 200, { ok: true, room: publicRoomFor(actAiRoom(room), session.username) });
     if (req.method === "POST" && action === "reset") return json(res, 200, { ok: true, room: publicRoomFor(resetRoom(room, session.username), session.username) });
     if (req.method === "POST" && action === "leave") {
       leaveRoom(room, session.username);

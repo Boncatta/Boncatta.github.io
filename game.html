@@ -51,6 +51,7 @@
       <section class="glass-panel room-command">
         <button class="primary-cta" id="startBattle" type="button">开始战斗</button>
         <button class="ghost-cta" id="addAi" type="button">&#28155;&#21152;AI</button>
+        <button class="primary-cta" id="actAi" type="button" hidden>AI&#34892;&#21160;</button>
         <button class="ghost-cta" id="leaveRoom" type="button">&#36864;&#20986;&#25151;&#38388;</button>
         <button class="ghost-cta" id="backLobby" type="button">&#36820;&#22238;&#22823;&#21381;</button>
         <button class="ghost-cta" id="resetBattle" type="button">重开</button>
@@ -64,10 +65,11 @@
         </div>
         <div class="fighter-board" id="fighterBoard"></div>
         <section class="glass-panel action-pad">
-          <label>主要目标<select id="targetPrimary"></select></label>
-          <label>第二目标<select id="targetSecondary"></select></label>
-          <label>第三目标<select id="targetTertiary"></select></label>
-          <label>复数目标<select id="targetMulti" multiple size="4"></select></label>
+          <div class="target-mode-row">
+            <button class="mini-button active" id="targetStepMode" type="button">&#36880;&#27425;&#28857;&#36873;</button>
+            <button class="mini-button" id="targetMultiMode" type="button">&#19968;&#27425;&#22810;&#36873;</button>
+          </div>
+          <p class="target-hint" id="targetHint">&#28857;&#20987;&#35282;&#33394;&#21345;&#36873;&#25321;&#30446;&#26631;</p>
           <button class="primary-cta" id="actButton" type="button">行动</button>
         </section>
         <details class="glass-panel battle-log">

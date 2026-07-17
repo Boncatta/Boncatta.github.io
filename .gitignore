@@ -3,6 +3,7 @@ www/
 
 .server.pid
 .playwright-cli/
+output/
 .wrangler-dry-run/
 .wrangler-login*.log
 
