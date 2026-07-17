@@ -80,7 +80,6 @@
     try {
       const payload = await API.me();
       state.user = payload.user;
-      if (!API.roomCode && payload.rooms?.[0]) API.roomCode = payload.rooms[0].code;
       return payload;
     } catch (error) {
       if (error.status === 401) API.setToken("");
