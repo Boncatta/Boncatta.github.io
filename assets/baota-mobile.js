@@ -5,7 +5,50 @@
 
   const $ = (id) => document.getElementById(id);
   const UPDATE_API = "https://api.github.com/repos/Boncatta/Boncatta.github.io/releases?per_page=5";
-  const state = { user: null, meta: null, rooms: [], room: null, poll: 0, mode: "duel", targets: { mode: "step", steps: [], multi: [] } };
+  const state = { user: null, meta: null, rooms: [], room: null, poll: 0, mode: "duel", targets: { steps: [] }, replay: { match: null, index: 0 } };
+
+  const SKILL_GUIDES = {
+    normal_attack: ["攻击", "对一名敌人造成10点攻击伤害。", "enemy", 1],
+    critical_hit: ["暴击", "对一名敌人造成20点暴击伤害。", "enemy", 1],
+    gain_shield: ["护盾", "为自己添加1层护盾。", "self", 0],
+    self_harm: ["反噬", "自己受到10点反噬伤害。", "self", 0],
+    heal: ["治疗", "自己恢复10点生命值。", "self", 0],
+    red_recovery: ["复苏", "自己恢复30点生命值。", "self", 0],
+    critical_heal: ["暴疗", "自己恢复20点生命值。", "self", 0],
+    two_more: ["追加行动", "获得2个额外行动点。", "self", 0],
+    blood_swap: ["换血", "与一名其他角色交换生命值。", "anyOther", 1],
+    blood_swap1: ["换血追击", "与一名其他角色交换生命值，并追击10点伤害。", "anyOther", 1],
+    silence: ["沉默", "使一名敌人行动点减少3。", "enemy", 1],
+    undead_ultimate: ["终焉", "选一名其他角色换血、暴击，并给自己加盾。", "anyOther", 1],
+    ice_attack: ["寒冰攻击", "对一名敌人造成30点寒冰伤害。", "enemy", 1],
+    ice_shield: ["冰晶护盾", "小法例外：可为自己或友方添加冰晶护盾。", "allySelf", 1, "multi"],
+    ice_silence: ["寂灭冰封", "逐个指定其他角色，使其行动点减少1。", "anyOther", 1, "multi"],
+    bomb_attack: ["爆裂", "逐个指定敌人造成20点爆裂伤害，自己受到反冲。", "enemy", 1, "multi"],
+    double_attack: ["燃血轰击", "先对一名敌人造成20点伤害，再自己受到10点伤害。", "enemy", 1],
+    poison_attack: ["毒药", "逐个指定敌人造成10点毒药伤害，自己受到反噬。", "enemy", 1, "multi"],
+    mage_ultimate: ["绝对零度", "对一名敌人造成30点伤害，并恢复自己30点生命。", "enemy", 1],
+    medicine_both_heal: ["群体治疗", "逐个指定自己或友方，恢复10点生命。", "allySelf", 1, "multi"],
+    medicine_crit_heal: ["嗜血之疗", "暴击一名敌人，并治疗自己。", "enemy", 1],
+    medicine_crit_silence: ["沉默重击", "暴击并沉默一名敌人。", "enemy", 1],
+    medicine_boost_heal: ["治疗整备", "强化自己的下一次治疗效果。", "self", 0],
+    medicine_mega_heal: ["愈合秘法", "自己恢复60点生命值。", "self", 0],
+    double_normal_attack: ["双重打击", "按顺序选择2次敌人，可重复选择。", "enemy", 2],
+    attack_and_draw: ["快速袭击", "攻击一名敌人，并获得1个额外行动点。", "enemy", 1],
+    attack_and_heal: ["嗜血一击", "攻击一名敌人，并治疗自己。", "enemy", 1],
+    attack_and_shield: ["持盾袭击", "攻击一名敌人，并为自己添加护盾。", "enemy", 1],
+    half_hp_and_attack: ["裂空一击", "全场生命削减后，攻击一名敌人。", "enemy", 1],
+    double_next_attack: ["力量凝聚", "自己的下次攻击威力翻倍。", "self", 0],
+    self_harm_and_triple_critical: ["毁灭三连", "按顺序选择3次敌人，可重复选择。", "enemy", 3],
+    double_deduction: ["无畏冲击", "全场受到10点伤害。", "any", 0],
+    double_deduction_and_draw: ["无畏连打", "全场受到10点伤害，并获得1个额外行动点。", "any", 0],
+    half_hp_both: ["生命削减", "全场生命减半。", "any", 0],
+    attack_critical_draw: ["暴力连打", "先选择普通攻击目标，再选择暴击目标。", "enemy", 2],
+    double_deduction_30_attack_critical_draw: ["终极连招", "全场冲击后，选择普通攻击与暴击目标。", "enemy", 2],
+    both_heal_10: ["群体恢复", "逐个指定自己或友方，恢复10点生命。", "allySelf", 1, "multi"],
+    critical_and_critical_heal_and_draw: ["未来之击", "暴击一名敌人，治疗自己并追加行动。", "enemy", 1],
+    shield_and_self_harm_10: ["荆棘之盾", "为自己添加护盾，然后自己受到10点不可格挡伤害。", "self", 0],
+    knight_ultimate: ["骑士奥义", "暴击一名敌人，追加行动，并给自己3层护盾。", "enemy", 1],
+  };
 
   function modeKeys() {
     return Object.keys(state.meta?.modes || {});
@@ -62,7 +105,7 @@
         <footer class="room-card-actions">
           ${mine
             ? `<button class="primary-cta" type="button" data-room-action="enter">&#36827;&#20837;&#25151;&#38388;</button><button class="ghost-cta" type="button" data-room-action="leave">&#36864;&#20986;&#25151;&#38388;</button>`
-            : `<button class="primary-cta" type="button" data-room-action="join">&#21152;&#20837;&#25151;&#38388;</button>`}
+            : `${room.status === "waiting" || room.status === "ready" ? `<button class="primary-cta" type="button" data-room-action="join">&#21152;&#20837;&#25151;&#38388;</button>` : ""}<button class="ghost-cta" type="button" data-room-action="watch">观战</button>`}
         </footer>
       </article>
     `;
@@ -282,7 +325,7 @@
     if (mode === "ffa") return `阵营 ${index + 1}`;
     if (mode === "team4") return index === 0 || index === 2 ? "一队" : "二队";
     if (mode === "commander") return index < 2 ? "一队" : "二队";
-    return index === 0 ? "房主" : "访客";
+    return `${index + 1}号位`;
   }
 
   function hpTone(health) {
@@ -292,8 +335,7 @@
   }
 
   function selectedOrders(index) {
-    const list = state.targets.mode === "multi" ? state.targets.multi : state.targets.steps;
-    return list.map((value, position) => (value === index ? position + 1 : 0)).filter(Boolean);
+    return state.targets.steps.map((value, position) => (value === index ? position + 1 : 0)).filter(Boolean);
   }
 
   function pendingAction() {
@@ -308,11 +350,75 @@
 
   function clearTargets() {
     state.targets.steps = [];
-    state.targets.multi = [];
   }
 
-  function activeTargetList() {
-    return state.targets.mode === "multi" ? state.targets.multi : state.targets.steps;
+  function guideFor(action) {
+    const raw = SKILL_GUIDES[action?.handler] || [action?.name || "技能", "按提示选择目标。", "enemy", 1];
+    return { title: raw[0], desc: raw[1], group: raw[2], count: raw[3], mode: raw[4] || "fixed" };
+  }
+
+  function groupLabel(group) {
+    return {
+      enemy: "敌方目标",
+      anyOther: "自己以外的目标",
+      allySelf: "自己或友方",
+      self: "自己",
+      any: "全场",
+    }[group] || "目标";
+  }
+
+  function targetIndexes(group) {
+    const battle = state.room?.battle;
+    const current = battle?.players?.[battle.current];
+    if (!battle || !current) return [];
+    const currentTeam = current.team;
+    return (battle.players || [])
+      .map((player, index) => ({ player, index }))
+      .filter(({ player, index }) => {
+        if (!player || player.health <= 0) return false;
+        if (group === "self") return index === battle.current;
+        if (group === "any") return true;
+        if (group === "anyOther") return index !== battle.current;
+        if (group === "enemy") return player.team !== currentTeam;
+        if (group === "allySelf") return player.team === currentTeam;
+        return true;
+      })
+      .map(({ index }) => index);
+  }
+
+  function targetPlan() {
+    const pending = pendingAction();
+    if (!pending) return null;
+    const guide = guideFor(pending);
+    const candidates = targetIndexes(guide.group);
+    const max = guide.mode === "multi" ? Math.max(guide.count, candidates.length) : guide.count;
+    return { ...guide, min: guide.count, max, candidates };
+  }
+
+  function deadlineMs() {
+    const battle = state.room?.battle;
+    const deadline = Date.parse(battle?.pendingAction?.expiresAt || battle?.actionDeadlineAt || 0);
+    return deadline ? Math.max(0, deadline - Date.now()) : 0;
+  }
+
+  function timeText() {
+    const ms = deadlineMs();
+    return ms ? `${Math.ceil(ms / 1000)}秒` : "0秒";
+  }
+
+  function renderEffects(player) {
+    const shields = player.shields || [];
+    const normal = shields.filter((shield) => shield.type !== "ice").length;
+    const ice = shields.filter((shield) => shield.type === "ice").length;
+    const effects = [];
+    if (normal) effects.push(["shield", `护盾×${normal}`]);
+    if (ice) effects.push(["ice", `冰盾×${ice}`]);
+    if ((player.attackMultiplier || 1) > 1) effects.push(["attack", `攻击×${player.attackMultiplier}`]);
+    if ((player.healMultiplier || 1) > 1) effects.push(["heal", `治疗×${player.healMultiplier}`]);
+    if ((player.actionPoints || 0) > 1) effects.push(["ap", `行动×${player.actionPoints}`]);
+    return effects.length
+      ? `<div class="effect-row">${effects.map(([type, text]) => `<span class="effect-chip ${type}">${escape(text)}</span>`).join("")}</div>`
+      : `<div class="effect-row empty-effect">无特效</div>`;
   }
 
   function renderBattle() {
@@ -323,18 +429,21 @@
     if (!battle) return;
     $("roundText").textContent = `第 ${battle.phase || 1} 回合`;
     $("turnText").textContent = battle.skillText || "等待行动";
-    $("rollText").textContent = battle.lastRoll
-      ? `随机数 ${battle.lastRoll.roll}/${battle.lastRoll.max} · ${battle.lastRoll.skill} · ${battle.lastRoll.target}`
-      : "随机数：等待首次行动";
+    $("rollText").innerHTML = battle.lastRoll
+      ? `<span>随机数</span><b>${battle.lastRoll.roll}</b><small>/ ${battle.lastRoll.max} · ${escape(battle.lastRoll.skill)} · ${escape(battle.lastRoll.target)}</small>`
+      : `<span>随机数</span><b>--</b><small>等待行动</small>`;
+    const plan = targetPlan();
     $("fighterBoard").innerHTML = (battle.players || []).map((player, index) => {
       const hp = Math.max(0, Math.min(100, Number(player.health) || 0));
       const orders = selectedOrders(index);
       const selected = orders.length > 0;
-      return `<article class="fighter-card ${battle.current === index ? "current" : ""} ${selected ? "selected" : ""} ${player.health <= 0 ? "dead" : ""}" data-target-index="${index}">
+      const selectable = plan?.candidates?.includes(index);
+      return `<article class="fighter-card ${battle.current === index ? "current" : ""} ${selected ? "selected" : ""} ${selectable ? "selectable" : ""} ${player.health <= 0 ? "dead" : ""}" data-target-index="${index}">
         ${selected ? `<b class="target-badge">${orders.join("/")}</b>` : ""}
         <div class="fighter-head"><strong>${escape(player.displayName)}</strong><small>${escape(seatTeamLabel(state.room.mode, player.seatIndex))}</small></div>
         <div class="hp-bar ${hpTone(hp)}"><span style="width:${hp}%"></span></div>
-        <footer><span>HP ${Math.max(0, player.health)}</span><span>盾 ${player.shield || 0}</span><span>行动 ${player.actionPoints || 0}</span></footer>
+        <footer><span>HP ${Math.max(0, player.health)}</span><span>行动 ${player.actionPoints || 0}</span></footer>
+        ${renderEffects(player)}
       </article>`;
     }).join("");
     $("battleLog").innerHTML = (battle.logs || []).map((entry) => `<p ${entry.color ? `style="color:${entry.color}"` : ""}>${escape(entry.text)}</p>`).join("");
@@ -346,39 +455,45 @@
     const battle = state.room?.battle;
     const canAct = canCurrentUserAct();
     const pending = pendingAction();
+    const plan = targetPlan();
     const living = (battle?.players || []).map((player, index) => ({ player, index })).filter(({ player }) => player.health > 0);
     const valid = new Set(living.map(({ index }) => index));
     state.targets.steps = state.targets.steps.filter((index) => valid.has(index));
-    state.targets.multi = state.targets.multi.filter((index) => valid.has(index));
-    const activeList = activeTargetList();
+    const activeList = state.targets.steps;
     const selectedNames = activeList.map((index) => battle.players[index]?.displayName).filter(Boolean);
+    const need = plan ? Math.max(0, plan.min - activeList.length) : 0;
     if ($("targetHint")) {
       if (!canAct) $("targetHint").textContent = isAiTurn() ? "AI 思考中，稍等一下" : "等待其他玩家行动";
-      else if (!pending) $("targetHint").textContent = "先点击“掷技能”，看到本次行动后再选择目标";
-      else if (state.targets.mode === "multi") {
-        $("targetHint").textContent = `本次：${pending.name}。一次多选：${selectedNames.length ? selectedNames.join(" / ") : "点选一个或多个目标"}`;
+      else if (!pending) $("targetHint").textContent = `点击“行动”触发技能，本次思考上限 ${timeText()}`;
+      else if (!plan?.max) {
+        $("targetHint").textContent = `本次：${pending.name}。无需选择目标，点击按钮释放。剩余 ${timeText()}`;
+      } else if (need > 0) {
+        $("targetHint").textContent = `第 ${activeList.length + 1} 步：选择${groupLabel(plan.group)}。已选 ${selectedNames.length ? selectedNames.join(" / ") : "无"}，剩余 ${timeText()}`;
       } else {
-        $("targetHint").textContent = `本次：${pending.name}。逐次点选：${selectedNames.length ? selectedNames.map((name, i) => `${i + 1}.${name}`).join(" / ") : "按技能顺序点目标"}`;
+        $("targetHint").textContent = `目标已就绪：${selectedNames.join(" / ")}。点击“选择目标”结算，剩余 ${timeText()}`;
       }
     }
-    $("targetStepMode")?.classList.toggle("active", state.targets.mode === "step");
-    $("targetMultiMode")?.classList.toggle("active", state.targets.mode === "multi");
-    if ($("targetStepMode")) $("targetStepMode").disabled = !canAct || !pending;
-    if ($("targetMultiMode")) $("targetMultiMode").disabled = !canAct || !pending;
+    if ($("skillPanel")) {
+      $("skillPanel").hidden = !pending;
+      if (pending) {
+        const guide = guideFor(pending);
+        $("skillPanel").innerHTML = `<b>${escape(pending.name)}</b><span>${escape(guide.desc)}</span><em>${timeText()}</em>`;
+      }
+    }
     if ($("actButton")) {
-      $("actButton").textContent = pending ? "确认行动" : "掷技能";
-      $("actButton").disabled = !canAct;
+      $("actButton").textContent = pending ? (plan?.max ? "选择目标" : "释放技能") : "行动";
+      $("actButton").disabled = !canAct || Boolean(pending && plan?.max && activeList.length < plan.min);
     }
   }
 
   function collectTargets() {
-    const list = (state.targets.mode === "multi" ? state.targets.multi : state.targets.steps).filter((value) => value != null);
+    const list = state.targets.steps.filter((value) => value != null);
     const fallback = list[0] ?? 0;
     return {
       primary: list[0] ?? fallback,
       secondary: list[1] ?? fallback,
       tertiary: list[2] ?? list[1] ?? fallback,
-      multi: state.targets.mode === "multi" ? list : [fallback],
+      multi: list,
     };
   }
 
@@ -389,22 +504,16 @@
     const target = battle?.players?.[index];
     if (!canAct || !target || target.health <= 0) return;
     if (!pendingAction()) {
-      C.toast("先掷技能，再选目标");
+      C.toast("先行动触发技能，再选目标");
       return;
     }
-    if (state.targets.mode === "multi") {
-      state.targets.multi = state.targets.multi.includes(index)
-        ? state.targets.multi.filter((item) => item !== index)
-        : [...state.targets.multi, index];
-      if (!state.targets.multi.length) state.targets.multi = [index];
-    } else {
-      state.targets.steps = [...state.targets.steps, index].slice(-3);
+    const plan = targetPlan();
+    if (!plan?.candidates?.includes(index)) {
+      C.toast(`请选择${groupLabel(plan?.group)}`);
+      return;
     }
-    renderBattle();
-  }
-
-  function setTargetMode(mode) {
-    state.targets.mode = mode;
+    if (state.targets.steps.length >= (plan.max || 0)) state.targets.steps = state.targets.steps.slice(0, -1);
+    state.targets.steps = [...state.targets.steps, index];
     renderBattle();
   }
 
@@ -432,7 +541,7 @@
     $("leaveRoom").hidden = !inRoom || state.room.status === "playing";
     $("backLobby").hidden = false;
     $("resetBattle").hidden = state.room.host !== state.user?.username || !state.room.battle;
-    if ($("startBattle")) $("startBattle").closest(".room-command").hidden = inBattle;
+    if ($("startBattle")) $("startBattle").closest(".room-command").hidden = state.room.status === "playing";
     renderSeats();
     if ($("seatBoard")) $("seatBoard").hidden = inBattle;
     renderBattle();
@@ -518,7 +627,7 @@
       if (!state.room?.code) return;
       await loadCurrentRoom();
       renderGameRoom();
-    }, 1500);
+    }, 700);
   }
 
   async function renderGame() {
@@ -591,12 +700,71 @@
     }
   }
 
+  function renderMatchList(matches = []) {
+    const node = $("matchList");
+    if (!node) return;
+    node.innerHTML = matches.length ? matches.map((match) => {
+      const won = (match.winners || []).includes(state.user?.username);
+      return `<article class="match-row">
+        <div><strong>${escape(match.label || match.mode)}</strong><span>${escape(match.code)} · ${new Date(match.finishedAt).toLocaleString("zh-CN", { hour12: false })}</span></div>
+        <em class="${won ? "win" : "lose"}">${won ? "胜利" : "落败"}</em>
+        <small>${escape((match.participants || []).join(" / "))}</small>
+        <button class="mini-button" type="button" data-replay-id="${escape(match.id)}">回放 ${C.fmt.format(match.replayCount || 0)}</button>
+      </article>`;
+    }).join("") : `<div class="empty-state">暂无作战记录。</div>`;
+  }
+
+  function renderReplayFrame() {
+    const viewer = $("replayViewer");
+    const match = state.replay.match;
+    if (!viewer || !match) return;
+    const frames = match.replay || [];
+    const frame = frames[state.replay.index] || frames[0];
+    if (!frame?.battle) {
+      viewer.hidden = false;
+      viewer.innerHTML = `<div class="empty-state">这场没有可用回放。</div>`;
+      return;
+    }
+    const battle = frame.battle;
+    viewer.hidden = false;
+    viewer.innerHTML = `<div class="replay-head">
+      <strong>${escape(match.label)} · ${escape(match.code)}</strong>
+      <span>${state.replay.index + 1} / ${frames.length}</span>
+    </div>
+    <div class="replay-stage">
+      ${(battle.players || []).map((player) => {
+        const hp = Math.max(0, Number(player.health) || 0);
+        return `<div class="replay-fighter ${player.health <= 0 ? "dead" : ""}">
+          <strong>${escape(player.displayName)}</strong>
+          <div class="hp-bar ${hpTone(hp)}"><span style="width:${Math.min(100, hp)}%"></span></div>
+          <small>HP ${hp} · 护盾 ${player.shield || 0} · 行动 ${player.actionPoints || 0}</small>
+        </div>`;
+      }).join("")}
+    </div>
+    <p class="hint-line">${escape(frame.label || "")} · ${escape(battle.skillText || "")}</p>
+    <div class="replay-controls">
+      <button class="mini-button" type="button" data-replay-step="prev">上一步</button>
+      <button class="mini-button" type="button" data-replay-step="next">下一步</button>
+    </div>`;
+  }
+
+  async function openReplay(id) {
+    try {
+      const payload = await API.match(id);
+      state.replay = { match: payload.match, index: 0 };
+      renderReplayFrame();
+    } catch (error) {
+      C.toast(error.message);
+    }
+  }
+
   async function renderMe() {
     C.renderNav("me");
-    await loadMe();
+    const me = await loadMe();
     if (!state.user) {
       $("profileName").textContent = "未登录";
       $("statsGrid").innerHTML = `<a class="primary-cta" href="/index.html">去登录</a>`;
+      renderMatchList([]);
     } else {
       const stats = state.user.stats || {};
       $("profileName").textContent = state.user.username;
@@ -607,7 +775,21 @@
         ["行动", stats.actions || 0],
         ["建房", stats.roomsCreated || 0],
       ].map(([label, value]) => `<div><span>${label}</span><strong>${C.fmt.format(value)}</strong></div>`).join("");
+      renderMatchList(me?.matches || []);
     }
+    $("matchList")?.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-replay-id]");
+      if (button) openReplay(button.dataset.replayId);
+    });
+    $("replayViewer")?.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-replay-step]");
+      if (!button || !state.replay.match) return;
+      const frames = state.replay.match.replay || [];
+      state.replay.index = button.dataset.replayStep === "next"
+        ? Math.min(frames.length - 1, state.replay.index + 1)
+        : Math.max(0, state.replay.index - 1);
+      renderReplayFrame();
+    });
     $("logoutButton")?.addEventListener("click", async () => {
       await API.logout();
       C.navigate("index.html");
@@ -641,6 +823,9 @@
         C.navigate("game.html");
       } else if (button.dataset.roomAction === "join") {
         joinRoomFromLobby(code);
+      } else if (button.dataset.roomAction === "watch") {
+        API.roomCode = code;
+        C.navigate("game.html");
       } else if (button.dataset.roomAction === "leave") {
         leaveRoomFromLobby(code);
       }
@@ -657,8 +842,6 @@
     $("backLobby")?.addEventListener("click", backLobby);
     $("resetBattle")?.addEventListener("click", resetBattle);
     $("actButton")?.addEventListener("click", act);
-    $("targetStepMode")?.addEventListener("click", () => setTargetMode("step"));
-    $("targetMultiMode")?.addEventListener("click", () => setTargetMode("multi"));
     $("fighterBoard")?.addEventListener("click", (event) => {
       const card = event.target.closest("[data-target-index]");
       if (!card) return;

@@ -52,6 +52,7 @@
     login(username, password) { return this.request("/api/auth/login", { method: "POST", body: { username, password } }); },
     logout() { return this.request("/api/auth/logout", { method: "POST" }).finally(() => { this.setToken(""); this.roomCode = ""; }); },
     me() { return this.request("/api/me"); },
+    match(id) { return this.request(`/api/matches/${encodeURIComponent(id)}`); },
     rooms() { return this.request("/api/rooms"); },
     createRoom(mode, selections) { return this.request("/api/rooms", { method: "POST", body: { mode, selections } }); },
     room(code) { return this.request(`/api/rooms/${encodeURIComponent(code)}`); },

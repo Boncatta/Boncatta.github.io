@@ -61,14 +61,11 @@
         <div class="turn-card">
           <span class="game-kicker" id="roundText">第 1 回合</span>
           <strong id="turnText">等待行动</strong>
-          <small id="rollText">随机数：等待首次行动</small>
+          <div class="roll-readout" id="rollText">随机数：等待首次行动</div>
         </div>
         <div class="fighter-board" id="fighterBoard"></div>
         <section class="glass-panel action-pad">
-          <div class="target-mode-row">
-            <button class="mini-button active" id="targetStepMode" type="button">&#36880;&#27425;&#28857;&#36873;</button>
-            <button class="mini-button" id="targetMultiMode" type="button">&#19968;&#27425;&#22810;&#36873;</button>
-          </div>
+          <div class="skill-panel" id="skillPanel" hidden></div>
           <p class="target-hint" id="targetHint">&#28857;&#20987;&#35282;&#33394;&#21345;&#36873;&#25321;&#30446;&#26631;</p>
           <button class="primary-cta" id="actButton" type="button">行动</button>
         </section>

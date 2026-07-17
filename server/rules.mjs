@@ -62,6 +62,7 @@ export const CHARACTER_DEFS = [
 
 export const CHARACTER_BY_ID = Object.fromEntries(CHARACTER_DEFS.map((item) => [item.id, item]));
 export const DEFAULT_CHARS = ["undead", "frost", "medicine", "knight"];
+export const ACTION_TIME_LIMIT_MS = 5000;
 
 export const MODES = {
   duel: {
@@ -80,7 +81,7 @@ export const MODES = {
     minStart: 4,
     setup: "team",
     teamOf: (index) => (index < 2 ? 0 : 1),
-    note: "两名真实玩家各控制两名角色；房主队对访客队。",
+    note: "两名真实玩家各控制两名角色；一队对二队。",
   },
   team4: {
     label: "2v2 四玩家",
@@ -89,7 +90,7 @@ export const MODES = {
     minStart: 4,
     setup: "single",
     teamOf: (index) => (index === 0 || index === 2 ? 0 : 1),
-    note: "四名真实玩家各控制一名角色；1、3 号为一队，2、4 号为一队。",
+    note: "四名真实玩家各控制一名角色；1、3 号为一队，2、4 号为二队。",
   },
   ffa: {
     label: "多人混战",
@@ -127,7 +128,7 @@ export function seatTeamLabel(mode, index) {
   if (mode === "ffa") return `独立阵营 ${index + 1}`;
   if (mode === "team4") return index === 0 || index === 2 ? "一队" : "二队";
   if (mode === "commander") return index < 2 ? "一队" : "二队";
-  return index === 0 ? "房主" : "访客";
+  return `${index + 1}号位`;
 }
 
 export function seatsForUser(room, username) {
@@ -178,6 +179,7 @@ export class BattleEngine {
     this.skillColor = "#93a4b8";
     this.lastRoll = null;
     this.pendingAction = null;
+    this.actionDeadlineAt = this.current == null ? null : new Date(Date.now() + ACTION_TIME_LIMIT_MS).toISOString();
     this.winnerTeam = null;
     this.logs = [];
     if (this.current != null) this.players[this.current].actionPoints = 1;
@@ -201,6 +203,7 @@ export class BattleEngine {
     engine.skillColor = snapshot?.skillColor || "#93a4b8";
     engine.lastRoll = snapshot?.lastRoll || null;
     engine.pendingAction = snapshot?.pendingAction ? { ...snapshot.pendingAction } : null;
+    engine.actionDeadlineAt = snapshot?.actionDeadlineAt || null;
     engine.winnerTeam = snapshot?.winnerTeam ?? null;
     engine.logs = snapshot?.logs || [];
     return engine;
@@ -218,6 +221,7 @@ export class BattleEngine {
       skillColor: this.skillColor,
       lastRoll: this.lastRoll,
       pendingAction: this.pendingAction ? { ...this.pendingAction } : null,
+      actionDeadlineAt: this.actionDeadlineAt,
       winnerTeam: this.winnerTeam,
       logs: this.logs.slice(-260),
     };
@@ -392,6 +396,7 @@ export class BattleEngine {
     this.gameOver = true;
     this.current = null;
     this.pendingAction = null;
+    this.actionDeadlineAt = null;
     this.winnerTeam = teams.size ? [...teams][0] : null;
     if (!teams.size) this.skillText = "平局。";
     else {
@@ -408,6 +413,7 @@ export class BattleEngine {
   advanceTurn() {
     if (this.checkGameOver()) return;
     this.pendingAction = null;
+    this.actionDeadlineAt = null;
     const old = this.turnOrder.indexOf(this.current);
     let pointer = old >= 0 ? old : 0;
     for (let guard = 0; guard < this.turnOrder.length * 6; guard += 1) {
@@ -425,6 +431,7 @@ export class BattleEngine {
         continue;
       }
       this.current = next;
+      this.actionDeadlineAt = new Date(Date.now() + ACTION_TIME_LIMIT_MS).toISOString();
       this.log(`${player.displayName} 开始行动。`);
       return;
     }
@@ -451,7 +458,9 @@ export class BattleEngine {
       range: result.range,
       attackerIndex: this.current,
       attackerName: attacker.displayName,
+      expiresAt: new Date(Date.now() + ACTION_TIME_LIMIT_MS).toISOString(),
     };
+    this.actionDeadlineAt = this.pendingAction.expiresAt;
     this.lastRoll = result.roll ? { roll: result.roll, max: 100, skill: result.name, target: "等待选择目标", range: result.range } : null;
     this.skillText = `${attacker.displayName} 掷出了 [${result.name}] · 随机数 ${result.roll}/100`;
     return this.pendingAction;
@@ -475,6 +484,7 @@ export class BattleEngine {
     attacker.actionPoints -= 1;
     if (this.checkGameOver()) return;
     if (attacker.actionPoints <= 0) this.advanceTurn();
+    else this.actionDeadlineAt = new Date(Date.now() + ACTION_TIME_LIMIT_MS).toISOString();
   }
 
   rollSkill(attacker) {
@@ -504,7 +514,7 @@ export class BattleEngine {
     const handlers = {
       normal_attack: () => { normal(enemy()); resetAttack(); },
       critical_hit: () => { crit(enemy()); resetAttack(); },
-      gain_shield: () => this.addShield(ally(), "normal", 1, attacker, ctx),
+      gain_shield: () => this.addShield(attacker, "normal", 1, attacker, ctx),
       ice_shield: () => this.targets(ctx, "allySelf", "one").forEach((target) => this.addShield(target, "ice", 1, attacker, ctx)),
       self_harm: () => this.damage(attacker, 10, attacker, "反噬伤害", ctx),
       heal: () => { selfHeal(10); attacker.healMultiplier = 1; },
@@ -529,7 +539,7 @@ export class BattleEngine {
       double_normal_attack: () => { const mult = attacker.attackMultiplier; this.combo(ctx, "enemy", 2).forEach((target) => normal(target, mult)); resetAttack(); },
       attack_and_draw: () => { normal(enemy()); resetAttack(); attacker.actionPoints += 1; this.log(`${attacker.displayName} 获得1个额外行动点。`); },
       attack_and_heal: () => { normal(enemy()); resetAttack(); selfHeal(10); attacker.healMultiplier = 1; },
-      attack_and_shield: () => { normal(enemy()); resetAttack(); this.addShield(this.target(ctx, "secondary", "allySelf", "self") || attacker, "normal", 1, attacker, ctx); },
+      attack_and_shield: () => { normal(enemy()); resetAttack(); this.addShield(attacker, "normal", 1, attacker, ctx); },
       half_hp_and_attack: () => { this.allHalf(attacker, ctx); normal(enemy()); resetAttack(); },
       double_next_attack: () => { attacker.attackMultiplier *= 2; this.log(`${attacker.displayName} 下次攻击威力翻倍。`); this.mark(ctx, attacker); },
       self_harm_and_triple_critical: () => { const mult = attacker.attackMultiplier; this.combo(ctx, "enemy", 3).forEach((target) => crit(target, mult)); resetAttack(); if (!this.checkGameOver()) this.damage(attacker, 40, attacker, "毁灭代价", ctx, false); },
@@ -540,7 +550,7 @@ export class BattleEngine {
       double_deduction_30_attack_critical_draw: () => { this.allDamage(attacker, 30, "终极全场冲击", ctx); const [a, b] = this.combo(ctx, "enemy", 2); normal(a); crit(b); resetAttack(); attacker.actionPoints += 1; },
       both_heal_10: () => { groupHeal(10); attacker.healMultiplier = 1; },
       critical_and_critical_heal_and_draw: () => { crit(enemy()); resetAttack(); selfHeal(20); attacker.healMultiplier = 1; attacker.actionPoints += 2; },
-      shield_and_self_harm_10: () => { this.addShield(ally(), "normal", 1, attacker, ctx); this.damage(attacker, 10, attacker, "不可格挡反噬", ctx, false); },
+      shield_and_self_harm_10: () => { this.addShield(attacker, "normal", 1, attacker, ctx); this.damage(attacker, 10, attacker, "不可格挡反噬", ctx, false); },
       knight_ultimate: () => { crit(enemy()); resetAttack(); attacker.actionPoints += 1; this.addShield(attacker, "normal", 3, attacker, ctx); },
     };
     (handlers[handler] || (() => this.log(`技能 ${handler} 暂未实现。`)))();

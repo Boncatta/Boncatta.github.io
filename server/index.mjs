@@ -6,6 +6,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 import {
+  ACTION_TIME_LIMIT_MS,
   BattleEngine,
   CHARACTER_DEFS,
   DEFAULT_CHARS,
@@ -28,6 +29,7 @@ const githubReleaseApi = "https://api.github.com/repos/Boncatta/Boncatta.github.
 const aiNames = ["Tata", "Frost", "Med", "Blade", "Knight", "Nova"];
 const aiDelayMs = Number(process.env.BONCATTA_AI_DELAY_MS || 750);
 const aiTimers = new Map();
+const turnTimers = new Map();
 
 const mime = {
   ".html": "text/html; charset=utf-8",
@@ -170,12 +172,53 @@ function publicRoom(room) {
     ...summarizeRoom(room),
     seats: room.seats,
     battle: room.battle,
+    replayCount: room.replay?.length || 0,
     mySeats: [],
   };
 }
 
 function publicRoomFor(room, username) {
-  return { ...publicRoom(room), mySeats: seatsForUser(room, username) };
+  const mySeats = seatsForUser(room, username);
+  return { ...publicRoom(room), mySeats, spectator: !mySeats.length };
+}
+
+function matchSummary(match) {
+  return {
+    id: match.id || `${match.code}-${match.finishedAt || ""}`,
+    code: match.code,
+    mode: match.mode,
+    label: MODES[match.mode]?.label || match.mode,
+    finishedAt: match.finishedAt,
+    participants: match.participants || [],
+    winners: match.winners || [],
+    replayCount: match.replay?.length || 0,
+  };
+}
+
+function publicMatch(match) {
+  return {
+    ...matchSummary(match),
+    players: match.players || [],
+    replay: match.replay || [],
+  };
+}
+
+function recordReplay(room, label = "") {
+  if (!room?.battle) return;
+  room.replay = Array.isArray(room.replay) ? room.replay : [];
+  room.replay.push({
+    at: nowIso(),
+    label,
+    battle: BattleEngine.fromSnapshot(room.battle, room.mode).clone(),
+  });
+  room.replay = room.replay.slice(-120);
+}
+
+function clearTurnTimer(code) {
+  const key = String(code || "").toUpperCase();
+  const timer = turnTimers.get(key);
+  if (timer) clearTimeout(timer);
+  turnTimers.delete(key);
 }
 
 function occupy(room, username, selections, preferred = null) {
@@ -247,6 +290,7 @@ function createRoom(username, mode, selections) {
     updatedAt: nowIso(),
     seats: makeSeats(config === MODES[mode] ? mode : "duel"),
     battle: null,
+    replay: [],
     statsApplied: false,
   };
   occupy(room, username, selections, config.setup === "team" ? null : 0);
@@ -279,10 +323,12 @@ function startRoom(room, username) {
   if (occupied.length < MODES[room.mode].minStart) throw httpError(409, "人数不足。");
   room.status = "playing";
   room.battle = new BattleEngine(room.mode, occupied).clone();
+  room.replay = [];
+  recordReplay(room, "战斗开始");
   room.statsApplied = false;
   room.updatedAt = nowIso();
   saveDb();
-  scheduleAiIfNeeded(room);
+  scheduleBattleAutomation(room);
   return room;
 }
 
@@ -319,6 +365,20 @@ function runAiTurns(room, limit = 24) {
   room.status = room.battle.gameOver ? "finished" : "playing";
 }
 
+function finishAutomatedStep(room, engine, label, actorUsername = "") {
+  room.battle = engine.clone();
+  room.status = room.battle.gameOver ? "finished" : "playing";
+  room.updatedAt = nowIso();
+  if (actorUsername && getDb().users[actorUsername]?.stats) {
+    getDb().users[actorUsername].stats.actions += 1;
+    getDb().users[actorUsername].updatedAt = nowIso();
+  }
+  recordReplay(room, label);
+  applyStats(room);
+  saveDb({ backup: room.status === "finished" });
+  scheduleBattleAutomation(room);
+}
+
 function scheduleAiIfNeeded(room, delay = aiDelayMs) {
   if (!room?.code || !room.battle || room.status !== "playing") return;
   const engine = BattleEngine.fromSnapshot(room.battle, room.mode);
@@ -335,18 +395,66 @@ function scheduleAiIfNeeded(room, delay = aiDelayMs) {
       const liveCurrent = liveEngine.currentFighter();
       if (!liveCurrent || !isAiUsername(liveCurrent.username) || liveEngine.gameOver) return;
       liveEngine.takeAction(aiTargets(liveEngine));
-      liveRoom.battle = liveEngine.clone();
-      liveRoom.status = liveRoom.battle.gameOver ? "finished" : "playing";
-      liveRoom.updatedAt = nowIso();
-      applyStats(liveRoom);
-      saveDb({ backup: liveRoom.status === "finished" });
-      scheduleAiIfNeeded(liveRoom);
+      finishAutomatedStep(liveRoom, liveEngine, "AI 行动");
     } catch (error) {
       console.error(`AI turn failed for room ${code}:`, error);
     }
   }, Math.max(200, delay));
   timer.unref?.();
   aiTimers.set(code, timer);
+}
+
+function applyHumanTimeout(room) {
+  if (!room?.battle || room.status !== "playing") return false;
+  const engine = BattleEngine.fromSnapshot(room.battle, room.mode);
+  const current = engine.currentFighter();
+  if (!current || isAiUsername(current.username) || engine.gameOver) return false;
+  const deadline = Date.parse(engine.pendingAction?.expiresAt || engine.actionDeadlineAt || 0);
+  if (!deadline || deadline > Date.now()) return false;
+  engine.log(`${current.displayName} 思考超时，系统自动行动。`, "#e54866");
+  if (engine.pendingAction) engine.resolvePendingAction(aiTargets(engine));
+  else engine.takeAction(aiTargets(engine));
+  finishAutomatedStep(room, engine, "思考超时", current.username);
+  return true;
+}
+
+function scheduleHumanTimeout(room) {
+  if (!room?.code || !room.battle || room.status !== "playing") return;
+  const engine = BattleEngine.fromSnapshot(room.battle, room.mode);
+  const current = engine.currentFighter();
+  if (!current || isAiUsername(current.username) || engine.gameOver) {
+    clearTurnTimer(room.code);
+    return;
+  }
+  const deadline = Date.parse(engine.pendingAction?.expiresAt || engine.actionDeadlineAt || 0);
+  if (!deadline) return;
+  const code = room.code.toUpperCase();
+  clearTurnTimer(code);
+  if (deadline <= Date.now()) {
+    applyHumanTimeout(room);
+    return;
+  }
+  const timer = setTimeout(() => {
+    turnTimers.delete(code);
+    try {
+      const liveRoom = getDb().rooms[code];
+      if (applyHumanTimeout(liveRoom)) return;
+      scheduleBattleAutomation(liveRoom);
+    } catch (error) {
+      console.error(`Turn timeout failed for room ${code}:`, error);
+    }
+  }, Math.max(0, deadline - Date.now() + 40));
+  timer.unref?.();
+  turnTimers.set(code, timer);
+}
+
+function scheduleBattleAutomation(room) {
+  if (!room?.battle || room.status !== "playing") {
+    clearTurnTimer(room?.code);
+    return;
+  }
+  scheduleAiIfNeeded(room);
+  scheduleHumanTimeout(room);
 }
 
 function applyStats(room) {
@@ -368,17 +476,27 @@ function applyStats(room) {
     db.users[username].updatedAt = nowIso();
   }
   db.matches.unshift({
+    id: `${room.code}-${Date.now()}`,
     code: room.code,
     mode: room.mode,
     finishedAt: nowIso(),
     participants,
     winners: [...winners],
+    players: (room.battle.players || []).map((player) => ({
+      username: player.username,
+      playerName: player.playerName,
+      characterName: player.characterName,
+      team: player.team,
+      health: player.health,
+    })),
+    replay: room.replay || [],
   });
   db.matches = db.matches.slice(0, 200);
   room.statsApplied = true;
 }
 
 function actRoom(room, username, targets) {
+  applyHumanTimeout(room);
   if (!canAct(room, username)) throw httpError(403, "现在不是你的行动。");
   const engine = BattleEngine.fromSnapshot(room.battle, room.mode);
   engine.takeAction(targets || {});
@@ -387,23 +505,28 @@ function actRoom(room, username, targets) {
   room.updatedAt = nowIso();
   getDb().users[username].stats.actions += 1;
   getDb().users[username].updatedAt = nowIso();
+  recordReplay(room, "行动结算");
   applyStats(room);
   saveDb({ backup: room.status === "finished" });
-  scheduleAiIfNeeded(room);
+  scheduleBattleAutomation(room);
   return room;
 }
 
 function rollRoom(room, username) {
+  applyHumanTimeout(room);
   if (!canAct(room, username)) throw httpError(403, "现在不是你的行动。");
   const engine = BattleEngine.fromSnapshot(room.battle, room.mode);
   engine.rollPendingAction();
   room.battle = engine.clone();
   room.updatedAt = nowIso();
+  recordReplay(room, "触发技能");
   saveDb();
+  scheduleBattleAutomation(room);
   return room;
 }
 
 function resolveRoom(room, username, targets) {
+  applyHumanTimeout(room);
   if (!canAct(room, username)) throw httpError(403, "现在不是你的行动。");
   const engine = BattleEngine.fromSnapshot(room.battle, room.mode);
   engine.resolvePendingAction(targets || {});
@@ -412,9 +535,10 @@ function resolveRoom(room, username, targets) {
   room.updatedAt = nowIso();
   getDb().users[username].stats.actions += 1;
   getDb().users[username].updatedAt = nowIso();
+  recordReplay(room, "选择目标");
   applyStats(room);
   saveDb({ backup: room.status === "finished" });
-  scheduleAiIfNeeded(room);
+  scheduleBattleAutomation(room);
   return room;
 }
 
@@ -427,16 +551,19 @@ function actAiRoom(room) {
   room.battle = engine.clone();
   room.status = room.battle.gameOver ? "finished" : "playing";
   room.updatedAt = nowIso();
+  recordReplay(room, "AI 行动");
   applyStats(room);
   saveDb({ backup: room.status === "finished" });
-  scheduleAiIfNeeded(room);
+  scheduleBattleAutomation(room);
   return room;
 }
 
 function resetRoom(room, username) {
   if (room.host !== username) throw httpError(403, "只有房主可以重开。");
+  clearTurnTimer(room.code);
   room.status = roomStatus({ ...room, status: "waiting" });
   room.battle = null;
+  room.replay = [];
   room.statsApplied = false;
   room.updatedAt = nowIso();
   saveDb();
@@ -597,11 +724,24 @@ async function api(req, res, path) {
     const myRooms = Object.values(getDb().rooms)
       .filter((room) => seatsForUser(room, session.username).length)
       .map((room) => publicRoomFor(room, session.username));
-    return json(res, 200, { ok: true, user: publicUser(session.user), rooms: myRooms });
+    const matches = (getDb().matches || [])
+      .filter((match) => (match.participants || []).includes(session.username))
+      .slice(0, 30)
+      .map(matchSummary);
+    return json(res, 200, { ok: true, user: publicUser(session.user), rooms: myRooms, matches });
+  }
+
+  const matchDetail = path.match(/^\/api\/matches\/([^/]+)$/);
+  if (req.method === "GET" && matchDetail) {
+    const id = decodeURIComponent(matchDetail[1]);
+    const match = (getDb().matches || []).find((item) => item.id === id || `${item.code}-${item.finishedAt}` === id);
+    if (!match) return fail(res, 404, "战绩不存在。");
+    if (!(match.participants || []).includes(session.username)) return fail(res, 403, "只能查看自己的作战记录。");
+    return json(res, 200, { ok: true, match: publicMatch(match) });
   }
 
   if (req.method === "GET" && path === "/api/rooms") {
-    Object.values(getDb().rooms).forEach((room) => scheduleAiIfNeeded(room));
+    Object.values(getDb().rooms).forEach((room) => scheduleBattleAutomation(room));
     const rooms = Object.values(getDb().rooms)
       .map((room) => ({ ...summarizeRoom(room), mySeats: seatsForUser(room, session.username) }))
       .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
@@ -622,7 +762,7 @@ async function api(req, res, path) {
     if (!room) return fail(res, 404, "房间不存在。");
 
     if (req.method === "GET" && !action) {
-      scheduleAiIfNeeded(room);
+      scheduleBattleAutomation(room);
       return json(res, 200, { ok: true, room: publicRoomFor(room, session.username) });
     }
     if (req.method === "POST" && action === "join") return json(res, 200, { ok: true, room: publicRoomFor(joinRoom(room, session.username, body.selections || body.selection), session.username) });
