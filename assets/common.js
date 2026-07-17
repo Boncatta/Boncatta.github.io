@@ -1,4 +1,10 @@
 (() => {
+  const runtimeOrigin = "http://39.106.213.49";
+  if (location.protocol === "https:" && location.hostname === "boncatta.github.io") {
+    location.replace(`${runtimeOrigin}${location.pathname}${location.search}${location.hash}`);
+    return;
+  }
+
   const fmt = new Intl.NumberFormat("zh-CN");
   const nav = [
     ["index.html", "主页", "home"],
