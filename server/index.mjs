@@ -221,6 +221,18 @@ function clearTurnTimer(code) {
   turnTimers.delete(key);
 }
 
+function clearAiTimer(code) {
+  const key = String(code || "").toUpperCase();
+  const timer = aiTimers.get(key);
+  if (timer) clearTimeout(timer);
+  aiTimers.delete(key);
+}
+
+function clearRoomTimers(code) {
+  clearTurnTimer(code);
+  clearAiTimer(code);
+}
+
 function occupy(room, username, selections, preferred = null) {
   const wanted = Array.isArray(selections) ? selections : [selections];
   const occupyOne = (index, pick) => {
@@ -342,12 +354,27 @@ function canAct(room, username) {
 function aiTargets(engine) {
   const enemies = engine.aliveIndexes("enemy");
   const others = engine.aliveIndexes("anyOther");
-  const fallback = enemies[0] ?? others[0] ?? engine.current ?? 0;
+  let ordered = enemies.length ? enemies : others;
+  if (engine.mode === "ffa") {
+    const score = (index) => {
+      const player = engine.players[index];
+      if (!player) return 9999;
+      const aiBias = isAiUsername(player.username) ? -1000 : 0;
+      return aiBias + player.health + (player.shield || 0) * 18 + (player.actionPoints || 0) * 6;
+    };
+    ordered = ordered.slice().sort((a, b) => score(a) - score(b));
+  }
+  const ffaAiTargets = engine.mode === "ffa"
+    ? ordered.filter((index) => isAiUsername(engine.players[index]?.username))
+    : [];
+  const pool = ffaAiTargets.length ? ffaAiTargets : ordered;
+  const fallback = pool[0] ?? ordered[0] ?? others[0] ?? engine.current ?? 0;
+  const safeMulti = pool.length ? pool : [fallback];
   return {
     primary: fallback,
-    secondary: enemies[1] ?? fallback,
-    tertiary: enemies[2] ?? fallback,
-    multi: enemies.length ? enemies : others,
+    secondary: pool[1] ?? fallback,
+    tertiary: pool[2] ?? fallback,
+    multi: safeMulti,
   };
 }
 
@@ -450,7 +477,7 @@ function scheduleHumanTimeout(room) {
 
 function scheduleBattleAutomation(room) {
   if (!room?.battle || room.status !== "playing") {
-    clearTurnTimer(room?.code);
+    clearRoomTimers(room?.code);
     return;
   }
   scheduleAiIfNeeded(room);
@@ -560,7 +587,7 @@ function actAiRoom(room) {
 
 function resetRoom(room, username) {
   if (room.host !== username) throw httpError(403, "只有房主可以重开。");
-  clearTurnTimer(room.code);
+  clearRoomTimers(room.code);
   room.status = roomStatus({ ...room, status: "waiting" });
   room.battle = null;
   room.replay = [];
@@ -579,6 +606,7 @@ function leaveRoom(room, username) {
     }
   }
   if (room.host === username || !room.seats.some((seat) => seat.occupied)) {
+    clearRoomTimers(room.code);
     delete getDb().rooms[room.code];
   } else {
     room.updatedAt = nowIso();

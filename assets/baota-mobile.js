@@ -286,7 +286,10 @@
   }
 
   async function loadCurrentRoom() {
-    if (!API.roomCode) return null;
+    if (!API.roomCode) {
+      clearRoomView();
+      return null;
+    }
     try {
       const payload = await API.room(API.roomCode);
       state.room = payload.room;
@@ -299,12 +302,26 @@
     }
   }
 
+  function clearRoomView() {
+    state.room = null;
+    clearTargets();
+    document.body.classList.remove("is-battling");
+    if ($("battleBoard")) $("battleBoard").hidden = true;
+    if ($("seatBoard")) {
+      $("seatBoard").hidden = false;
+      $("seatBoard").innerHTML = "";
+    }
+    const command = $("startBattle")?.closest(".room-command");
+    if (command) command.hidden = false;
+  }
+
   function renderGameShell() {
     const authed = Boolean(state.user);
     if ($("gameLoginGate")) $("gameLoginGate").hidden = authed;
     if ($("createStage")) $("createStage").hidden = !authed || Boolean(state.room);
     if ($("roomStage")) $("roomStage").hidden = !authed || !state.room;
-    if ($("gameStatus")) $("gameStatus").textContent = !authed ? "未登录" : state.room ? "房间同步中" : "准备开局";
+    if (!state.room) clearRoomView();
+    if ($("gameStatus")) $("gameStatus").textContent = !authed ? "未登录" : state.room ? statusText(state.room.status) : "准备开局";
   }
 
   function renderSeats() {
@@ -591,15 +608,17 @@
       C.toast(error.message);
       return;
     }
-    state.room = null;
     API.roomCode = "";
-    renderGameShell();
+    window.clearInterval(state.poll);
+    clearRoomView();
+    C.navigate("index.html");
   }
 
   async function resetBattle() {
     try {
       const payload = await API.reset(state.room.code);
       state.room = payload.room;
+      clearTargets();
       renderGameRoom();
     } catch (error) {
       C.toast(error.message);
@@ -846,11 +865,6 @@
       const card = event.target.closest("[data-target-index]");
       if (!card) return;
       chooseTarget(Number(card.dataset.targetIndex));
-    });
-    $("gameRefresh")?.addEventListener("click", async () => {
-      await loadCurrentRoom();
-      renderGameRoom();
-      C.toast("已同步");
     });
   }
 
